@@ -111,11 +111,22 @@ describe('parseChecklist（合成 HTML 边界）', () => {
     expect(parseChecklist(html, 'Regular')[0].items.map((i) => i.text)).toEqual(['Only once']);
   });
 
-  it('目标 div 缺失 → 抛错（结构异常）', () => {
-    expect(() => parseChecklist('<html><body></body></html>', 'Regular')).toThrow(/Regular/);
+  it('目标 div 缺失 → FetchError(kind=structure)（与 fetcher 分类统一）', () => {
+    try {
+      parseChecklist('<html><body></body></html>', 'Regular');
+      expect.unreachable('应当抛错');
+    } catch (e) {
+      expect(e).toMatchObject({ name: 'FetchError', kind: 'structure' });
+    }
   });
 
-  it('div 存在但零章节 → 抛错', () => {
-    expect(() => parseChecklist(wrap(''), 'Regular')).toThrow(/章节/);
+  it('div 存在但零章节 → FetchError(kind=structure)', () => {
+    try {
+      parseChecklist(wrap(''), 'Regular');
+      expect.unreachable('应当抛错');
+    } catch (e) {
+      expect(e).toMatchObject({ kind: 'structure' });
+      expect((e as Error).message).toMatch(/章节/);
+    }
   });
 });

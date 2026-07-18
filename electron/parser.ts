@@ -7,9 +7,7 @@
 import * as cheerio from 'cheerio';
 import type { Cheerio, CheerioAPI } from 'cheerio';
 import type { AnyNode } from 'domhandler';
-import type { ChecklistType } from './fetcher.ts';
-
-const BASE = 'https://immi.homeaffairs.gov.au';
+import { BASE, FetchError, type ChecklistType } from './fetcher.ts';
 
 export interface ChecklistLink {
   text: string;
@@ -67,7 +65,8 @@ export function parseChecklist(html: string, type: ChecklistType): ChecklistSect
   const $ = cheerio.load(html);
   const root = $(`div#${type}`);
   if (root.length === 0) {
-    throw new Error(`清单容器 div#${type} 不存在——官网可能已改版`);
+    // 与 fetcher 同一错误分类体系（kind: 'structure'）——#13 三态 UI 统一消费（Kimi 终审 P2）
+    throw new FetchError('structure', `清单容器 div#${type} 不存在——官网可能已改版`);
   }
   const sections: ChecklistSection[] = [];
   root.find('.accordion-item').each((_, itemEl) => {
@@ -91,7 +90,7 @@ export function parseChecklist(html: string, type: ChecklistType): ChecklistSect
     sections.push({ name, anchorId, items });
   });
   if (sections.length === 0) {
-    throw new Error(`div#${type} 内未解析出任何章节——官网可能已改版`);
+    throw new FetchError('structure', `div#${type} 内未解析出任何章节——官网可能已改版`);
   }
   return sections;
 }
