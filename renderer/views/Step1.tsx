@@ -30,14 +30,28 @@ export interface Step1Props {
 export function Step1(props: Step1Props): React.JSX.Element {
   const [countries, setCountries] = useState<TermItem[]>([]);
   const [schools, setSchools] = useState<TermItem[]>([]);
+  const [termsError, setTermsError] = useState<string | null>(null);
   const [country, setCountry] = useState<TermItem | 'undecided' | null>(null);
   const [school, setSchool] = useState<TermItem | 'undecided' | null>(null);
   const [studentType, setStudentType] = useState(props.settings?.studentTypeDefault ?? '01');
 
-  useEffect(() => {
-    window.visapaw?.getTerms('countries').then(setCountries).catch(() => setCountries([]));
-    window.visapaw?.getTerms('cricos').then(setSchools).catch(() => setSchools([]));
-  }, []);
+  // 下拉数据加载失败必须显性化并可重试——静默空列表会让表单无声失效（Codex 外门 P2）
+  const loadTerms = (): void => {
+    setTermsError(null);
+    Promise.all([
+      window.visapaw?.getTerms('countries') ?? Promise.resolve([]),
+      window.visapaw?.getTerms('cricos') ?? Promise.resolve([]),
+    ])
+      .then(([c, s]) => {
+        setCountries(c);
+        setSchools(s);
+      })
+      .catch((e: Error) => {
+        setTermsError(e.message || '官网下拉数据加载失败');
+      });
+  };
+
+  useEffect(loadTerms, []);
 
   useEffect(() => {
     if (props.settings) setStudentType(props.settings.studentTypeDefault);
@@ -69,6 +83,14 @@ export function Step1(props: Step1Props): React.JSX.Element {
       </div>
 
       <div className="form">
+        {termsError && (
+          <div className="terms-error">
+            <span>⚠️ 官网下拉数据加载失败：{termsError}</span>
+            <button className="retry-link" onClick={loadTerms}>
+              重试
+            </button>
+          </div>
+        )}
         <div className="field">
           <label>
             护照国籍 <span className="opt">Country of passport · 可下拉选择，也可输入搜索</span>

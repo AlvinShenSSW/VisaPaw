@@ -90,3 +90,15 @@
 .btn-primary:disabled { opacity: .5; cursor: default; filter: none; }
 .actions .privacy { font-size: 12px; color: var(--text-3); line-height: 1.55; max-width: 380px; }
 .actions .privacy .lock { color: var(--accent); }
+
+/* 下拉数据加载失败提示（Codex 外门 P2；配色沿用 warn 语义 token） */
+.terms-error {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px; border-radius: 8px; font-size: 12.5px;
+  background: var(--warn-bg); border: 1px solid var(--warn-border); color: var(--warn);
+}
+.terms-error .retry-link {
+  margin-left: auto; border: none; background: none; font-family: inherit;
+  color: var(--accent); font-size: 12.5px; font-weight: 600; cursor: pointer; padding: 0;
+}
+.terms-error .retry-link:hover { text-decoration: underline; }

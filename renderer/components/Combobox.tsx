@@ -23,6 +23,7 @@ export function Combobox(props: ComboboxProps): React.JSX.Element {
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(-1);
   const rootRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   const filtered = useMemo(() => filterOptions(props.options, query), [props.options, query]);
   const rowCount = filtered.length + (props.undecidedLabel ? 1 : 0);
@@ -34,6 +35,13 @@ export function Combobox(props: ComboboxProps): React.JSX.Element {
     document.addEventListener('mousedown', onDocMouseDown);
     return () => document.removeEventListener('mousedown', onDocMouseDown);
   }, []);
+
+  // ↑↓ 移动时保持活动项可见——超出 264px 滚动容器后仍能看到选择（Codex 外门 P2）
+  useEffect(() => {
+    if (!open || active < 0) return;
+    const row = listRef.current?.querySelectorAll('[role="option"]')[active];
+    (row as HTMLElement | undefined)?.scrollIntoView({ block: 'nearest' });
+  }, [open, active]);
 
   const commit = (index: number): void => {
     if (props.undecidedLabel && index === filtered.length) {
@@ -63,7 +71,17 @@ export function Combobox(props: ComboboxProps): React.JSX.Element {
   const inputValue = open ? query : displayValue(props.selected, props.undecidedLabel ?? '未定');
 
   return (
-    <div className={`combo${open ? ' open' : ''}`} ref={rootRef}>
+    <div
+      className={`combo${open ? ' open' : ''}`}
+      ref={rootRef}
+      // Tab 移走键盘焦点时收起下拉——否则两个 combobox 可同时展开重叠（Codex 外门 P2）
+      onBlur={(e) => {
+        if (!rootRef.current?.contains(e.relatedTarget as Node)) {
+          setOpen(false);
+          setActive(-1);
+        }
+      }}
+    >
       <svg className="search-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6">
         <circle cx="7" cy="7" r="4.5" />
         <path d="M10.5 10.5 L14 14" />
@@ -88,7 +106,7 @@ export function Combobox(props: ComboboxProps): React.JSX.Element {
             <span>{props.metaText}</span>
             <span>{filtered.length} 项匹配</span>
           </div>
-          <div className="dd-scroll">
+          <div className="dd-scroll" ref={listRef}>
             {filtered.map((f, i) => (
               <div
                 key={f.option.value + f.option.key}
