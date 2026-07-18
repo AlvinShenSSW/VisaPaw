@@ -172,6 +172,15 @@ describe('Kimi 终审第二轮修复回归', () => {
     expect(f.verifyStructure(fake)).toBe(false);
   });
 
+  it('data-id / data-target-id 属性不得误命中指纹（Kimi 终审第三轮）', () => {
+    const f = createFetcher({ cacheDir: tmp() });
+    const fake =
+      '<div data-id="Regular" ><div data-target-id="Streamlined" ><div data-id="Undetermined" >';
+    expect(f.verifyStructure(fake)).toBe(false);
+    const real = '<div class="accordion" id="Regular" x><div id="Streamlined"><div id="Undetermined">';
+    expect(f.verifyStructure(real)).toBe(true);
+  });
+
   it('跨端点并发仍全局串行（任一时刻一个在途请求）', async () => {
     let inFlight = 0;
     let maxInFlight = 0;
