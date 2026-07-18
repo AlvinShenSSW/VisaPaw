@@ -8,7 +8,9 @@ import { useEffect, useState } from 'react';
 import type { Settings, TermItem } from '../../common/types.ts';
 import { Combobox } from '../components/Combobox.tsx';
 
-export const STUDENT_TYPES: ReadonlyArray<readonly [string, string]> = [
+export type StudentTypeCode = '01' | '02' | '03' | '04' | '05';
+
+export const STUDENT_TYPES: ReadonlyArray<readonly [StudentTypeCode, string]> = [
   ['01', '普通学生（默认） — 代码 01'],
   ['02', '中学交换学生 — 代码 02'],
   ['03', 'PhD 论文评审续签 — 代码 03'],
@@ -19,7 +21,7 @@ export const STUDENT_TYPES: ReadonlyArray<readonly [string, string]> = [
 export interface Step1Selection {
   country: TermItem;
   school: TermItem | 'undecided';
-  studentTypeCode: string;
+  studentTypeCode: StudentTypeCode;
 }
 
 export interface Step1Props {
@@ -33,7 +35,9 @@ export function Step1(props: Step1Props): React.JSX.Element {
   const [termsError, setTermsError] = useState<string | null>(null);
   const [country, setCountry] = useState<TermItem | 'undecided' | null>(null);
   const [school, setSchool] = useState<TermItem | 'undecided' | null>(null);
-  const [studentType, setStudentType] = useState(props.settings?.studentTypeDefault ?? '01');
+  const [studentType, setStudentType] = useState<StudentTypeCode>(
+    (props.settings?.studentTypeDefault as StudentTypeCode) ?? '01'
+  );
 
   // 下拉数据加载失败必须显性化并可重试——静默空列表会让表单无声失效（Codex 外门 P2）
   const loadTerms = (): void => {
@@ -55,7 +59,8 @@ export function Step1(props: Step1Props): React.JSX.Element {
   useEffect(loadTerms, []);
 
   useEffect(() => {
-    if (props.settings) setStudentType(props.settings.studentTypeDefault);
+    // settings-store 已用 /^0[1-5]$/ 校验——此处窄化安全
+    if (props.settings) setStudentType(props.settings.studentTypeDefault as StudentTypeCode);
   }, [props.settings]);
 
   const valid = country !== null && country !== 'undecided' && school !== null;
@@ -125,7 +130,11 @@ export function Step1(props: Step1Props): React.JSX.Element {
           <label>
             学生类型 <span className="opt">Student type</span>
           </label>
-          <select className="select" value={studentType} onChange={(e) => setStudentType(e.target.value)}>
+          <select
+            className="select"
+            value={studentType}
+            onChange={(e) => setStudentType(e.target.value as StudentTypeCode)}
+          >
             {STUDENT_TYPES.map(([code, label]) => (
               <option key={code} value={code}>
                 {label}
