@@ -78,9 +78,10 @@ const CHECKLIST_TYPES: readonly string[] = ['Regular', 'Streamlined', 'Undetermi
 // 属性感知匹配而非裸子串，避免 JS 字符串/无关属性误命中（Kimi 终审 P2）
 const FINGERPRINT_DIV_IDS = ['Regular', 'Streamlined', 'Undetermined'] as const;
 // 值整体锚定 + 引号风格兼容；`id` 属性名前必须是空白（`data-id=` 的 `-i` 也是词边界，
-// `\b` 会误命中——Kimi 终审第三轮实测）
+// `\b` 会误命中）。标签/属性名按 HTML 语义大小写不敏感（`<DIV ID=`），
+// 但 id 的**值**保持大小写敏感——整只 `i` flag 会把 id="regular" 误判为命中（Kimi P2 部分采纳）
 const fingerprintPattern = (id: string): RegExp =>
-  new RegExp(`<div\\b(?:[^>]*\\s)?id=["']${id}["'](?=[\\s/>])`);
+  new RegExp(`<[dD][iI][vV]\\b(?:[^>]*\\s)?[iI][dD]=["']${id}["'](?=[\\s/>])`);
 
 interface TermsCacheFile {
   fetchedAt: number;

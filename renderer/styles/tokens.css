@@ -57,4 +57,6 @@
   --fs-body: 13.5px;
   --fs-body-lg: 14.5px;
   --fs-small: 12px;
+  /* accent 背景上的前景色（mockup 中的 #fff 语义化） */
+  --on-accent: #FFFFFF;
 }
