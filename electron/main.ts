@@ -9,11 +9,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createSettingsStore, PROVIDER_IDS, type SettingsStore, type ProviderId } from './settings-store.ts';
 import { createCredentialStore, type CredentialStore, type SafeCrypto } from './credential-store.ts';
+import { createLogStore, type LogStore } from './logging.ts';
 
 const DEV_URL = process.env.VITE_DEV_SERVER_URL || 'http://localhost:5274';
 
 let settings: SettingsStore;
 let credentials: CredentialStore;
+let logs: LogStore;
 
 function initStores(): void {
   const userData = app.getPath('userData');
@@ -24,6 +26,7 @@ function initStores(): void {
   };
   settings = createSettingsStore(path.join(userData, 'settings.json'));
   credentials = createCredentialStore(path.join(userData, 'credentials.bin'), crypto);
+  logs = createLogStore(path.join(userData, 'logs'));
 }
 
 function createWindow(): void {
@@ -105,6 +108,17 @@ function registerIpc(): void {
     });
   });
   ipcMain.handle('credentials:status', () => credentials.getStatus());
+  // 生成日志（#15）——#12 日志标签页数据源
+  ipcMain.handle('logs:list', () => logs.listRuns());
+  ipcMain.handle('logs:get', (_e, id: unknown) => {
+    if (typeof id !== 'string') throw new Error('运行 id 必须是字符串');
+    return logs.getRun(id);
+  });
+  ipcMain.handle('logs:export', (_e, id: unknown) => {
+    if (typeof id !== 'string') throw new Error('运行 id 必须是字符串');
+    return logs.exportRun(id);
+  });
+  ipcMain.handle('logs:clear', () => logs.clear());
   ipcMain.handle('system:status', () => ({
     dark: nativeTheme.shouldUseDarkColors,
     version: app.getVersion(),

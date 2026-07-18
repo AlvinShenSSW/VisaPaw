@@ -47,6 +47,8 @@ export type AiEvent =
       model: string;
       errorKind: AiErrorKind;
       message: string;
+      /** 链上下一个已启用的 provider（#15 日志「前后 provider」；无下家为 undefined） */
+      next?: ProviderId;
     }
   | { type: 'success'; provider: ProviderId; model: string };
 
@@ -106,7 +108,9 @@ export function createAiService(deps: AiServiceDeps): AiService {
     validate: (raw: unknown, provider: ProviderId) => T
   ): Promise<{ value: T; meta: AiMeta }> {
     const attempts: AiAttempt[] = [];
-    for (const setting of deps.settings.providers) {
+    const providers = deps.settings.providers;
+    for (let i = 0; i < providers.length; i++) {
+      const setting = providers[i];
       if (!setting.enabled) {
         emit({ type: 'skip', provider: setting.id, reason: 'disabled' });
         continue;
@@ -156,6 +160,9 @@ export function createAiService(deps: AiServiceDeps): AiService {
           model,
           errorKind: err.kind,
           message: err.message,
+          // 下家必须真的可尝试：已启用且配了 key——否则日志会指向一个立即被 skip 的
+          // provider（Codex 外门 P2）
+          next: providers.slice(i + 1).find((p) => p.enabled && deps.getKey(p.id))?.id,
         });
       }
     }

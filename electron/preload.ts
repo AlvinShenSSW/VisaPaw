@@ -13,6 +13,10 @@ const bridge: VisapawBridge = {
   deleteProviderKey: (provider) => ipcRenderer.invoke('credentials:delete', provider),
   getProviderKeyStatus: () => ipcRenderer.invoke('credentials:status'),
   getSystemStatus: () => ipcRenderer.invoke('system:status'),
+  listRunLogs: () => ipcRenderer.invoke('logs:list'),
+  getRunLog: (id) => ipcRenderer.invoke('logs:get', id),
+  exportRunLog: (id) => ipcRenderer.invoke('logs:export', id),
+  clearRunLogs: () => ipcRenderer.invoke('logs:clear'),
 };
 
 contextBridge.exposeInMainWorld('visapaw', bridge);
