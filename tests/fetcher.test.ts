@@ -172,6 +172,14 @@ describe('Kimi 终审第二轮修复回归', () => {
     expect(f.verifyStructure(fake)).toBe(false);
   });
 
+  it('属性名大小写不敏感（<DIV ID=）但 id 值大小写敏感（Kimi PR#25 P2 部分采纳）', () => {
+    const f = createFetcher({ cacheDir: tmp() });
+    const upper = '<DIV ID="Regular"><div Id="Streamlined"><div iD="Undetermined">';
+    expect(f.verifyStructure(upper)).toBe(true);
+    const wrongCase = '<div id="regular"><div id="Streamlined"><div id="Undetermined">';
+    expect(f.verifyStructure(wrongCase)).toBe(false);
+  });
+
   it('data-id / data-target-id 属性不得误命中指纹（Kimi 终审第三轮）', () => {
     const f = createFetcher({ cacheDir: tmp() });
     const fake =

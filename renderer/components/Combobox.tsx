@@ -12,7 +12,8 @@ export interface ComboboxProps {
   placeholder: string;
   metaText: string;
   selected: TermItem | 'undecided' | null;
-  onSelect(next: TermItem | 'undecided' | null): void;
+  /** 只在确认选择时触发（不会发出 null——Kimi 终审 minor） */
+  onSelect(next: TermItem | 'undecided'): void;
   /** 提供时在列表末尾固定「未定」项（院校字段） */
   undecidedLabel?: string;
   icon?: string;
@@ -112,7 +113,12 @@ export function Combobox(props: ComboboxProps): React.JSX.Element {
                 key={f.option.value + f.option.key}
                 className={`dd-item${i === active ? ' active' : ''}`}
                 role="option"
-                aria-selected={i === active}
+                // aria-selected 表达已提交的选择，键盘焦点由 .active 视觉表达（Kimi 终审 P2）
+                aria-selected={
+                  props.selected !== null &&
+                  props.selected !== 'undecided' &&
+                  props.selected.value === f.option.value
+                }
                 onMouseEnter={() => setActive(i)}
                 onMouseDown={(e) => {
                   e.preventDefault();
@@ -130,7 +136,7 @@ export function Combobox(props: ComboboxProps): React.JSX.Element {
               <div
                 className={`dd-item dd-undecided${active === filtered.length ? ' active' : ''}`}
                 role="option"
-                aria-selected={active === filtered.length}
+                aria-selected={props.selected === 'undecided'}
                 onMouseEnter={() => setActive(filtered.length)}
                 onMouseDown={(e) => {
                   e.preventDefault();

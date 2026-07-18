@@ -45,6 +45,7 @@ export function Step1(props: Step1Props): React.JSX.Element {
       .then(([c, s]) => {
         setCountries(c);
         setSchools(s);
+        setTermsError(null); // 并发加载下成功必须清除横幅（Kimi 终审 P2）
       })
       .catch((e: Error) => {
         setTermsError(e.message || '官网下拉数据加载失败');
