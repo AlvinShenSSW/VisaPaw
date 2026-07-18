@@ -164,8 +164,12 @@ export function App(): React.JSX.Element {
           result={route.result}
           allOpen={enAllOpen}
           onExport={(kind) => {
-            // 三种导出由 #14 落地
-            console.warn(`导出（${kind}）由 #14 实现`);
+            window.visapaw
+              ?.exportResult(kind, route.result)
+              .then((r) => {
+                if (!r.ok && r.message !== '已取消') console.warn(`导出失败：${r.message}`);
+              })
+              .catch(() => undefined);
           }}
           retryingTranslation={retrying}
           retryError={retryError}

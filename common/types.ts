@@ -169,6 +169,11 @@ export interface VisapawBridge {
   cancelGenerate(): Promise<void>;
   /** 状态 D：仅重试翻译，不重新抓取（#13） */
   retryTranslation(result: GenerateResult): Promise<GenerateOutcome>;
+  /** 导出（#14）：markdown/pdf 弹保存框写文件；copy 写剪贴板（纯文本+富文本双格式） */
+  exportResult(
+    kind: 'markdown' | 'pdf' | 'copy',
+    result: GenerateResult
+  ): Promise<{ ok: true; path?: string } | { ok: false; message: string }>;
   /** 订阅进度事件；返回退订函数 */
   onGenerateProgress(cb: (e: ProgressEvent) => void): () => void;
   listRunLogs(): Promise<RunSummary[]>;
