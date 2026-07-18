@@ -11,7 +11,7 @@
 - `fetchTerms(kind: 'countries' | 'cricos')` → `TermItem[]{key,value}`——Termstore POST；**缓存 7 天**（cacheDir 注入，文件带 fetchedAt，过期或损坏即重抓）
 - `fetchChecklistType({countryPassport, provider, cricosCode, studentTypeCode})` → `'Regular'|'Streamlined'|'Undetermined'`
 - `fetchChecklistPage()` → `{html, fetchedAt}`——每次生成实时抓取，不缓存
-- `verifyStructure(html, apiProbe)` → 结构指纹：`div#Regular/#Streamlined/#Undetermined` 三者齐全 + 两接口关键字段（`d.success`、`data[].Key/Value`、`studentResult`）
+- `verifyStructure(html)` → 页面指纹（三清单 div 齐全）；**两接口关键字段校验内嵌于每次调用**（envelope/Key/Value/studentResult 不符即抛 `structure`）——生成流程渲染前必然触达三端点，等效满足「生成前校验」且不产生额外官网请求
 
 ## 错误分类（供 #13 UI 三态呈现，类型驱动非字符串匹配）
 
