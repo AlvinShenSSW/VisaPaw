@@ -5,7 +5,7 @@
  * #12 决议：key 明文/掩码不进 renderer——掩码为静态占位（prefix + 定长点）。
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type {
   ProviderId,
   ProviderSetting,
@@ -73,6 +73,9 @@ function ProviderTab(props: SettingsViewProps): React.JSX.Element {
   const [draftKey, setDraftKey] = useState('');
   const [dragFrom, setDragFrom] = useState<number | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [keyError, setKeyError] = useState<string | null>(null);
+  // 设置写入串行化——并发乐观更新的迟到失败会把 UI 回滚到过期状态（Kimi PR#28 P2）
+  const saveChain = useRef<Promise<unknown>>(Promise.resolve());
 
   const refreshKeys = (): void => {
     window.visapaw?.getProviderKeyStatus().then(setKeyStatus).catch(() => setKeyStatus(null));
@@ -85,18 +88,22 @@ function ProviderTab(props: SettingsViewProps): React.JSX.Element {
     const prev = props.settings;
     props.onSettingsChange({ ...prev, providers: nextProviders });
     setSaveError(null);
-    window.visapaw
-      ?.setSettings({ providers: nextProviders })
-      .then((saved) => props.onSettingsChange(saved)) // 以持久化结果为准
-      .catch((e: Error) => {
-        // 落盘失败必须回滚并显性化——否则展示链与持久化不一致（Codex PR#28 P2）
-        props.onSettingsChange(prev);
-        setSaveError(`设置保存失败：${e.message}`);
-      });
+    saveChain.current = saveChain.current.then(() =>
+      (window.visapaw?.setSettings({ providers: nextProviders }) ?? Promise.resolve(null))
+        .then((saved) => {
+          if (saved) props.onSettingsChange(saved); // 以持久化结果为准
+        })
+        .catch((e: Error) => {
+          // 落盘失败必须回滚并显性化——否则展示链与持久化不一致（Codex PR#28 P2）
+          props.onSettingsChange(prev);
+          setSaveError(`设置保存失败：${e.message}`);
+        })
+    );
   };
 
   const saveKey = (id: ProviderId): void => {
     if (!draftKey.trim()) return;
+    setKeyError(null);
     window.visapaw
       ?.setProviderKey(id, draftKey.trim())
       .then((st) => {
@@ -104,7 +111,10 @@ function ProviderTab(props: SettingsViewProps): React.JSX.Element {
         setEditing(null);
         setDraftKey('');
       })
-      .catch(() => undefined);
+      .catch((e: Error) => {
+        // Keychain 写入失败必须显性化——静默失败会让用户误以为已保存（Kimi PR#28 P2）
+        setKeyError(`API key 保存失败：${e.message}`);
+      });
   };
 
   return (
@@ -122,6 +132,7 @@ function ProviderTab(props: SettingsViewProps): React.JSX.Element {
         拖动左侧手柄调整 fallback 顺序 · 三家共用同一份术语表与 prompt 模板，切换后术语一致
       </div>
       {saveError && <div className="p-note warn">⚠️ {saveError}</div>}
+      {keyError && <div className="p-note warn">⚠️ {keyError}</div>}
 
       {providers.map((p, i) => {
         const meta = providerMeta(p.id);
@@ -306,7 +317,8 @@ function LogsTab(): React.JSX.Element {
       a.href = URL.createObjectURL(blob);
       a.download = `${selected}.log.txt`;
       a.click();
-      URL.revokeObjectURL(a.href);
+      // 立即 revoke 可能取消尚未开始的下载（Kimi PR#28 minor）
+      setTimeout(() => URL.revokeObjectURL(a.href), 0);
     });
   };
 
