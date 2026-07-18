@@ -1,0 +1,17 @@
+{
+  "_probe": {
+    "provider": "The University of Melbourne (UniMelb)",
+    "cricosCode": "00116K"
+  },
+  "d": {
+    "__type": "Internet.Domain.JsonResponse",
+    "success": true,
+    "data": [
+      {
+        "studentResult": "Streamlined",
+        "internalError": ""
+      }
+    ],
+    "message": null
+  }
+}

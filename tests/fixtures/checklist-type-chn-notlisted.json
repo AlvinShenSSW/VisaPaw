@@ -1,0 +1,13 @@
+{
+  "d": {
+    "__type": "Internet.Domain.JsonResponse",
+    "success": true,
+    "data": [
+      {
+        "studentResult": "Streamlined",
+        "internalError": ""
+      }
+    ],
+    "message": null
+  }
+}
