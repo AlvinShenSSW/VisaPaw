@@ -23,13 +23,27 @@ import {
   type ClassifierEvent,
 } from './classifier.ts';
 import { DEFAULT_RULES, annotateItem } from './annotator.ts';
-import { AiExhaustedError } from './ai/errors.ts';
+import { AiError, AiExhaustedError } from './ai/errors.ts';
 import type { AiEvent, AiService } from './ai/orchestrator.ts';
 import type { RunHandle } from './logging.ts';
 import { aiEventToLog, classifierEventToLog } from './logging.ts';
 
 /** 每批翻译条数——驱动 n/total 进度并限制单次调用规模 */
 const TRANSLATE_BATCH_SIZE = 8;
+
+/** 管线错误 → 结构化 outcome 种类（跨 IPC；#13 三态 UI 的类型驱动数据源） */
+export function mapGenerateError(e: unknown): { kind: 'network' | 'forbidden' | 'structure' | 'cancelled' | 'unknown'; message: string } {
+  if (e instanceof CancelledError) return { kind: 'cancelled', message: e.message };
+  // AI provider 的 network ≠ 官网不可达——不得用「无法连接移民局官网」误诊（Kimi PR#29 P2）
+  if (e instanceof AiError) {
+    return { kind: 'unknown', message: `AI provider 网络错误：${e.message}` };
+  }
+  const kind = (e as { kind?: string })?.kind;
+  if (kind === 'network' || kind === 'forbidden' || kind === 'structure') {
+    return { kind, message: (e as Error).message };
+  }
+  return { kind: 'unknown', message: (e as Error)?.message ?? String(e) };
+}
 
 export class CancelledError extends Error {
   constructor() {
@@ -242,4 +256,63 @@ export async function generateChecklist(
     aiMetas,
     translationFailed,
   };
+}
+
+/**
+ * 状态 D 单独重试翻译（#13）——不重新抓取，仅对既有结果的英文条目重跑翻译链；
+ * 成功返回补全译文的新结果（无缝进入完整结果视图）。
+ */
+export async function retranslateResult(
+  result: GenerateResult,
+  deps: Pick<PipelineDeps, 'createAiService' | 'run'>,
+  onProgress: (e: ProgressEvent) => void = () => undefined,
+  cancel: CancelToken = { cancelled: false }
+): Promise<GenerateResult> {
+  const run = deps.run;
+  onProgress({ type: 'phase', phase: 'translate', status: 'active' });
+  const translateAi = deps.createAiService((e) => {
+    const entry = aiEventToLog(e);
+    if (entry) run?.log(entry.level, '翻译', entry.message);
+    if (e.type === 'fallback') {
+      onProgress({ type: 'fallback-note', from: e.provider, fromModel: e.model, to: e.next, errorKind: e.errorKind });
+    }
+    if (e.type === 'attempt') {
+      onProgress({ type: 'provider', provider: e.provider, model: e.model });
+    }
+  });
+
+  const allTexts = result.groups.flatMap((g) => g.sections.flatMap((s) => s.items.map((i) => i.en)));
+  const translations: string[] = [];
+  let aiMeta: GenerateResult['aiMeta'] = null;
+  const aiMetas: GenerateResult['aiMetas'] = [];
+  for (let offset = 0; offset < allTexts.length; offset += TRANSLATE_BATCH_SIZE) {
+    if (cancel.cancelled) throw new CancelledError();
+    const batch = allTexts.slice(offset, offset + TRANSLATE_BATCH_SIZE);
+    const { translations: zh, meta } = await translateAi.translate(batch);
+    translations.push(...zh);
+    aiMeta = meta;
+    if (!aiMetas.some((m) => m.provider === meta.provider && m.model === meta.model)) {
+      aiMetas.push(meta);
+    }
+    onProgress({
+      type: 'translate-progress',
+      done: Math.min(offset + batch.length, allTexts.length),
+      total: allTexts.length,
+    });
+  }
+  run?.log('ok', '翻译', `重试成功 ${allTexts.length}/${allTexts.length} 条`);
+
+  let cursor = 0;
+  const groups = result.groups.map((g) => ({
+    ...g,
+    sections: g.sections.map((s) => ({
+      ...s,
+      items: s.items.map((item) => {
+        const zh = translations[cursor];
+        cursor += 1;
+        return { ...item, zh };
+      }),
+    })),
+  }));
+  return { ...result, groups, aiMeta, aiMetas, translationFailed: false };
 }

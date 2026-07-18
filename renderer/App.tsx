@@ -4,14 +4,19 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import type { GenerateResult, Settings } from '../common/types.ts';
+import type { GenerateOutcome, GenerateResult, Settings } from '../common/types.ts';
+import { ErrorView } from './views/ErrorView.tsx';
 import { providerChainLabel } from './lib/status.ts';
 import { Step1, type Step1Selection } from './views/Step1.tsx';
 import { Step2, reduceProgress, type Step2State } from './views/Step2.tsx';
 import { Step3 } from './views/Step3.tsx';
 import { SettingsView } from './views/Settings.tsx';
 
-type Route = { step: 1 } | { step: 2; selection: Step1Selection } | { step: 3; result: GenerateResult };
+type Route =
+  | { step: 1 }
+  | { step: 2; selection: Step1Selection }
+  | { step: 3; result: GenerateResult }
+  | { step: 'error'; outcome: Extract<GenerateOutcome, { ok: false }>; selection: Step1Selection };
 
 export function App(): React.JSX.Element {
   const [version, setVersion] = useState('');
@@ -19,6 +24,8 @@ export function App(): React.JSX.Element {
   const [route, setRoute] = useState<Route>({ step: 1 });
   const [progress, setProgress] = useState<Step2State>({ phase: 'search' });
   const [enAllOpen, setEnAllOpen] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+  const [retryError, setRetryError] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [settingsTab, setSettingsTab] = useState<'provider' | 'logs'>('provider');
   const unsubRef = useRef<(() => void) | null>(null);
@@ -50,21 +57,28 @@ export function App(): React.JSX.Element {
     );
     window.visapaw
       .startGenerate(selection)
-      .then((result) => {
+      .then((outcome) => {
         unsubRef.current?.();
         unsubRef.current = null;
-        if (mountedRef.current) setRoute({ step: 3, result });
+        if (!mountedRef.current) return;
+        if (outcome.ok) {
+          setRoute({ step: 3, result: outcome.result });
+        } else if (outcome.kind === 'cancelled') {
+          setRoute({ step: 1 });
+        } else {
+          // 三类错误分层视图（#13，类型驱动）
+          setRoute({ step: 'error', outcome, selection });
+        }
       })
       .catch((e: Error) => {
         unsubRef.current?.();
         unsubRef.current = null;
         if (!mountedRef.current) return;
-        if (e.message.includes('CANCELLED')) {
-          setRoute({ step: 1 });
-        } else {
-          // 错误分层视图由 #13 落地；先以内联错误保留在 Step 2
-          setProgress((prev) => ({ ...prev, error: e.message }));
-        }
+        setRoute({
+          step: 'error',
+          outcome: { ok: false, kind: 'unknown', message: e.message },
+          selection,
+        });
       });
   };
 
@@ -78,7 +92,17 @@ export function App(): React.JSX.Element {
         <span className="title">
           {showSettings
             ? 'VisaPaw 设置'
-            : `🐾 VisaPaw${route.step === 2 ? ' — 生成清单' : route.step === 3 ? ' — 生成结果' : ''}`}
+            : route.step === 'error' && route.outcome.kind === 'structure'
+              ? '🐾 VisaPaw — 官网手动模式（降级）'
+              : `🐾 VisaPaw${
+                  route.step === 2
+                    ? ' — 生成清单'
+                    : route.step === 3
+                      ? route.result.translationFailed
+                        ? ' — 生成结果（未翻译）'
+                        : ' — 生成结果'
+                      : ''
+                }`}
         </span>
         {!showSettings && route.step === 3 && (
           <span className="tools">
@@ -143,6 +167,41 @@ export function App(): React.JSX.Element {
             // 三种导出由 #14 落地
             console.warn(`导出（${kind}）由 #14 实现`);
           }}
+          retryingTranslation={retrying}
+          retryError={retryError}
+          onRetryTranslation={() => {
+            if (!window.visapaw || retrying) return;
+            setRetrying(true);
+            setRetryError(null);
+            const target = route.result;
+            window.visapaw
+              .retryTranslation(target)
+              .then((outcome) => {
+                if (!mountedRef.current) return;
+                if (outcome.ok) {
+                  // 仅当仍停留在同一结果时才替换——防迟到响应覆盖新导航（Codex PR#29 P2）
+                  setRoute((prev) =>
+                    prev.step === 3 && prev.result === target
+                      ? { step: 3, result: outcome.result }
+                      : prev
+                  );
+                } else {
+                  // 重试失败必须显性化，英文清单保留（Codex PR#29 P2）
+                  setRetryError(outcome.message);
+                }
+              })
+              .finally(() => {
+                if (mountedRef.current) setRetrying(false);
+              });
+          }}
+        />
+      )}
+      {!showSettings && route.step === 'error' && (
+        <ErrorView
+          outcome={route.outcome}
+          selection={route.selection}
+          onRetry={() => startGenerate(route.selection)}
+          onBack={() => setRoute({ step: 1 })}
         />
       )}
       <footer className="statusbar">

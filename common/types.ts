@@ -146,6 +146,15 @@ export interface GenerateResult {
   translationFailed: boolean;
 }
 
+/** 生成结果联合——错误种类必须结构化跨 IPC（#13：三类错误类型驱动，非字符串匹配） */
+export type GenerateOutcome =
+  | { ok: true; result: GenerateResult }
+  | {
+      ok: false;
+      kind: 'network' | 'forbidden' | 'structure' | 'cancelled' | 'unknown';
+      message: string;
+    };
+
 export interface VisapawBridge {
   getSettings(): Promise<Settings>;
   setSettings(patch: Partial<Settings>): Promise<Settings>;
@@ -155,9 +164,11 @@ export interface VisapawBridge {
   getSystemStatus(): Promise<{ dark: boolean; version: string }>;
   /** Termstore 下拉数据（main 侧 7 天缓存；smoke 模式返回空） */
   getTerms(kind: TermKind): Promise<TermItem[]>;
-  /** 启动生成（进度经 onGenerateProgress 流式推送；resolve 为最终结果或抛错） */
-  startGenerate(params: GenerateParams): Promise<GenerateResult>;
+  /** 启动生成（进度经 onGenerateProgress 流式推送；错误以结构化 outcome 返回） */
+  startGenerate(params: GenerateParams): Promise<GenerateOutcome>;
   cancelGenerate(): Promise<void>;
+  /** 状态 D：仅重试翻译，不重新抓取（#13） */
+  retryTranslation(result: GenerateResult): Promise<GenerateOutcome>;
   /** 订阅进度事件；返回退订函数 */
   onGenerateProgress(cb: (e: ProgressEvent) => void): () => void;
   listRunLogs(): Promise<RunSummary[]>;
