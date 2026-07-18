@@ -236,6 +236,47 @@ describe('generateChecklist（降级与取消）', () => {
   });
 });
 
+describe('mapGenerateError（#13 类型驱动的错误分发）', () => {
+  it('FetchError 三类 / CancelledError / 未知错误映射', async () => {
+    const { mapGenerateError, CancelledError: CE } = await import('../electron/pipeline.ts');
+    const { FetchError } = await import('../electron/fetcher.ts');
+    expect(mapGenerateError(new FetchError('network', '断网')).kind).toBe('network');
+    expect(mapGenerateError(new FetchError('forbidden', '403')).kind).toBe('forbidden');
+    expect(mapGenerateError(new FetchError('structure', '改版')).kind).toBe('structure');
+    expect(mapGenerateError(new CE()).kind).toBe('cancelled');
+    expect(mapGenerateError(new AiError('network', '断网', 'claude')).kind).toBe('network');
+    expect(mapGenerateError(new Error('boom')).kind).toBe('unknown');
+  });
+});
+
+describe('retranslateResult（状态 D 单独重试翻译，#13）', () => {
+  it('不重新抓取，译文补全，translationFailed 归 false（无缝进入完整结果）', async () => {
+    const { retranslateResult } = await import('../electron/pipeline.ts');
+    // 先制造一个翻译失败的结果
+    const failed = await generateChecklist(PARAMS, {
+      fetcher: stubFetcher(),
+      createAiService: () => stubAi({ exhaustAll: true }),
+    });
+    expect(failed.translationFailed).toBe(true);
+    const fetchSpy = stubFetcher();
+    void fetchSpy;
+    const events: ProgressEvent[] = [];
+    const retried = await retranslateResult(
+      failed,
+      { createAiService: () => stubAi() },
+      (e) => events.push(e)
+    );
+    expect(retried.translationFailed).toBe(false);
+    expect(retried.aiMeta).toEqual({ provider: 'claude', model: 'claude-opus-4-8' });
+    const items = retried.groups.flatMap((g) => g.sections.flatMap((s) => s.items));
+    expect(items.every((i) => i.zh?.includes('【中文】'))).toBe(true);
+    // 三要素来源字段原样保留
+    expect(retried.fetchedAt).toBe(failed.fetchedAt);
+    expect(retried.checklistType).toBe(failed.checklistType);
+    expect(events.some((e) => e.type === 'translate-progress')).toBe(true);
+  });
+});
+
 describe('reduceProgress（Step 2 视图状态折叠）', () => {
   it('事件序列驱动状态 A → B（含 provider/进度/fallback）', async () => {
     const { reduceProgress } = await import('../renderer/views/step2-state.ts');

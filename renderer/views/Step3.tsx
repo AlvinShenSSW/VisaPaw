@@ -21,6 +21,9 @@ export interface Step3Props {
   /** 全局英文展开态由 App 持有（标题栏按钮切换） */
   allOpen: boolean;
   onExport(kind: 'markdown' | 'pdf' | 'copy'): void;
+  /** 状态 D：单独重试翻译（不重新抓取，#13） */
+  onRetryTranslation(): void;
+  retryingTranslation?: boolean;
 }
 
 function Highlight({ text }: { text: string }): React.JSX.Element {
@@ -84,6 +87,23 @@ export function Step3(props: Step3Props): React.JSX.Element {
           </div>
         </div>
 
+        {result.translationFailed && (
+          <div className="trans-banner">
+            <span>🌐</span>
+            <span className="grow">
+              <b>翻译暂不可用。</b>
+              已启用的 provider 均调用失败（失败详情见 设置 →
+              日志），以下展示官网英文原文；分类与合规备注不依赖 AI，仍已注入。可稍后单独重试翻译，无需重新抓取。
+            </span>
+            <button
+              className="bar-btn"
+              onClick={props.onRetryTranslation}
+              disabled={props.retryingTranslation}
+            >
+              {props.retryingTranslation ? '重试中…' : '重试翻译'}
+            </button>
+          </div>
+        )}
         {groups.map((g, gi) => (
           <div className="cat" key={g.category}>
             <div className="cat-title">

@@ -7,6 +7,17 @@ declare global {
     /** preload 白名单桥；纯浏览器打开 renderer 时不存在 */
     visapaw?: VisapawBridge;
   }
+  namespace React {
+    namespace JSX {
+      interface IntrinsicElements {
+        /** Electron webview（状态 C 降级；安全约束在 main 侧施加） */
+        webview: React.DetailedHTMLProps<
+          React.HTMLAttributes<HTMLElement> & { src?: string; partition?: string },
+          HTMLElement
+        >;
+      }
+    }
+  }
 }
 
 export {};

@@ -12,8 +12,8 @@ import { createCredentialStore, type CredentialStore, type SafeCrypto } from './
 import { createLogStore, type LogStore } from './logging.ts';
 import { createFetcher, type Fetcher } from './fetcher.ts';
 import { createAiService } from './ai/orchestrator.ts';
-import { CancelledError, generateChecklist } from './pipeline.ts';
-import type { GenerateParams, ProgressEvent } from '../common/types.ts';
+import { generateChecklist, mapGenerateError, retranslateResult } from './pipeline.ts';
+import type { GenerateOutcome, GenerateParams, GenerateResult, ProgressEvent } from '../common/types.ts';
 
 const DEV_URL = process.env.VITE_DEV_SERVER_URL || 'http://localhost:5274';
 
@@ -50,6 +50,8 @@ function createWindow(): void {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      // 状态 C WebView 降级（#13）——SPEC §4 安全约束在 web-contents-created 中施加
+      webviewTag: true,
     },
   });
 
@@ -156,8 +158,8 @@ function registerIpc(): void {
 
   // 生成管线（#10）——进度流式推送，取消协作式；同一时刻仅一次生成
   let activeCancel: { cancelled: boolean } | null = null;
-  ipcMain.handle('generate:start', async (e, raw: unknown) => {
-    if (activeCancel) throw new Error('已有生成任务进行中');
+  ipcMain.handle('generate:start', async (e, raw: unknown): Promise<GenerateOutcome> => {
+    if (activeCancel) return { ok: false, kind: 'unknown', message: '已有生成任务进行中' };
     // 严格边界校验——畸形参数不得流向官网接口（Kimi PR#26 P2）
     const p = raw as GenerateParams;
     const isTerm = (t: unknown): t is { key: string; value: string } =>
@@ -168,7 +170,7 @@ function registerIpc(): void {
       typeof p?.studentTypeCode !== 'string' ||
       !/^0[1-5]$/.test(p.studentTypeCode)
     ) {
-      throw new Error('生成参数不完整或不合法');
+      return { ok: false, kind: 'unknown', message: '生成参数不完整或不合法' };
     }
     const cancel = { cancelled: false };
     const sender = e.sender;
@@ -204,16 +206,44 @@ function registerIpc(): void {
           checklistType: result.checklistType,
           translationFailed: result.translationFailed,
         });
-        return result;
+        return { ok: true, result };
       } catch (err) {
         run.finish('error');
         throw err;
       }
     } catch (err) {
-      if (err instanceof CancelledError) throw new Error('CANCELLED');
-      throw err;
+      // 错误种类结构化跨 IPC——#13 三态 UI 按类型驱动（非字符串匹配）
+      return { ok: false, ...mapGenerateError(err) };
     } finally {
       activeCancel = null;
+    }
+  });
+  // 状态 D：仅重试翻译，不重新抓取（#13）
+  ipcMain.handle('generate:retry-translation', async (_e, raw: unknown): Promise<GenerateOutcome> => {
+    const prev = raw as GenerateResult;
+    if (!prev?.groups || !prev?.params?.country?.value) {
+      return { ok: false, kind: 'unknown', message: '重试参数不合法' };
+    }
+    const run = logs.startRun({
+      country: prev.params.country.value,
+      cricosCode: prev.params.school === 'undecided' ? '未定' : prev.params.school.value,
+      studentTypeCode: prev.params.studentTypeCode,
+    });
+    try {
+      const result = await retranslateResult(prev, {
+        run,
+        createAiService: (onEvent) =>
+          createAiService({
+            settings: settings.get(),
+            getKey: (id) => credentials.getKey(id),
+            onEvent,
+          }),
+      });
+      run.finish('success', { checklistType: result.checklistType, translationFailed: false });
+      return { ok: true, result };
+    } catch (err) {
+      run.finish('error');
+      return { ok: false, ...mapGenerateError(err) };
     }
   });
   ipcMain.handle('generate:cancel', () => {
@@ -226,6 +256,27 @@ function registerIpc(): void {
 }
 
 app.setAppUserModelId('com.alvinshen.visapaw');
+
+// WebView 降级安全约束（SPEC §4/#13）：导航限制在 immi.homeaffairs.gov.au 域内、
+// 弹窗一律外部打开、不允许附加 preload（App 不采集个人信息的红线在降级模式同样成立）
+app.on('web-contents-created', (_e, contents) => {
+  // 嵌入方：剥离任何 webview preload/node 集成企图
+  contents.on('will-attach-webview', (_ev, webPreferences) => {
+    delete (webPreferences as { preload?: string }).preload;
+    webPreferences.nodeIntegration = false;
+    webPreferences.contextIsolation = true;
+  });
+  if (contents.getType() !== 'webview') return;
+  contents.on('will-navigate', (ev, url) => {
+    if (!url.startsWith('https://immi.homeaffairs.gov.au/')) ev.preventDefault();
+  });
+  contents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('https://')) {
+      shell.openExternal(url).catch(() => undefined);
+    }
+    return { action: 'deny' };
+  });
+});
 
 if (!app.requestSingleInstanceLock()) {
   app.quit();

@@ -1,0 +1,69 @@
+/* 异常与降级状态——结构与取值移植自 mockups/05（唯一视觉验收基准），仅 token 变量 */
+
+.err-panel { padding: 44px 48px 46px; text-align: center; flex: 1; overflow-y: auto; background: var(--window); }
+.err-icon {
+  width: 58px; height: 58px; border-radius: 16px; margin: 0 auto 18px;
+  display: flex; align-items: center; justify-content: center; font-size: 27px;
+  background: var(--danger-bg); border: 1px solid var(--danger-border);
+}
+.err-icon.warn { background: var(--warn-bg); border-color: var(--warn-border); }
+.err-panel h3 { font-size: 16px; font-weight: 700; margin-bottom: 9px; }
+.err-panel p { font-size: 13px; color: var(--text-2); line-height: 1.7; max-width: 440px; margin: 0 auto; }
+.err-panel p code {
+  font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: 11.5px;
+  background: var(--card); border: 1px solid var(--border); border-radius: 5px; padding: 1px 6px; color: var(--text-2);
+}
+.err-actions { margin-top: 22px; display: flex; justify-content: center; gap: 10px; }
+.err-actions .btn {
+  height: 34px; padding: 0 18px; border-radius: 8px; font-size: 13px; font-weight: 600; font-family: inherit;
+  cursor: pointer; border: 1px solid var(--border-2); background: var(--card); color: var(--text-2);
+}
+.err-actions .btn:hover { border-color: var(--accent); color: var(--accent); }
+.err-actions .btn-primary {
+  border: none; background: linear-gradient(180deg, var(--accent), var(--accent-strong)); color: var(--on-accent);
+  box-shadow: 0 2px 6px rgba(46, 155, 223, .35); margin-left: 0;
+}
+.err-detail { margin-top: 16px; font-size: 11.5px; color: var(--text-3); }
+.err-raw {
+  margin: 12px auto 0; max-width: 460px; text-align: left;
+  font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: 11px; line-height: 1.6;
+  background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+  padding: 9px 12px; color: var(--text-2); word-break: break-all;
+}
+
+/* 状态 C：WebView 降级 */
+.update-bar {
+  display: flex; align-items: center; gap: 10px; padding: 9px 16px;
+  background: var(--warn-bg); border-bottom: 1px solid var(--warn-border);
+  font-size: 12.5px; color: var(--warn); line-height: 1.5; flex: none;
+}
+.update-bar .grow { flex: 1; }
+.bar-btn {
+  height: 26px; padding: 0 12px; border-radius: 7px; border: 1px solid var(--warn-border);
+  background: transparent; color: var(--warn); font-size: 12px; font-weight: 600; font-family: inherit;
+  cursor: pointer; flex: none;
+}
+.selection-bar {
+  display: flex; gap: 14px; flex-wrap: wrap; padding: 7px 16px; flex: none;
+  border-bottom: 1px solid var(--border); background: var(--window);
+  font-size: 12px; color: var(--text-2);
+}
+.selection-bar b { color: var(--text); }
+.wv-host { flex: 1; display: flex; flex-direction: column; background: var(--card); }
+.wv-host webview { flex: 1; }
+.wv-chrome { display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-bottom: 1px solid var(--border); flex: none; }
+.wv-url {
+  flex: 1; height: 28px; border-radius: 7px; border: 1px solid var(--border);
+  background: var(--window); display: flex; align-items: center; gap: 7px;
+  padding: 0 11px; font-size: 12px; color: var(--text-2);
+}
+.wv-url .lock { color: var(--ok); font-size: 11px; }
+.wv-note { padding: 10px 16px; font-size: 11.5px; color: var(--text-3); line-height: 1.6; flex: none; border-top: 1px solid var(--border); background: var(--window); }
+
+/* 状态 D：翻译失败横幅（结果视图内） */
+.trans-banner {
+  margin: 14px 44px 0; display: flex; gap: 10px; align-items: center;
+  background: var(--warn-bg); border: 1px solid var(--warn-border); border-radius: 9px;
+  padding: 10px 13px; font-size: 12.5px; color: var(--warn); line-height: 1.6;
+}
+.trans-banner .grow { flex: 1; }
