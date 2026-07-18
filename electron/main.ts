@@ -281,7 +281,8 @@ function registerIpc(): void {
           filters: [{ name: 'Markdown', extensions: ['md'] }],
         });
         if (canceled || !filePath) return { ok: false, cancelled: true, message: '已取消' };
-        fs.writeFileSync(filePath, buildMarkdown(result), 'utf8');
+        // 异步写盘——同步写会阻塞 main 进程事件循环与全部 IPC（Kimi PR#30 P2）
+        await fs.promises.writeFile(filePath, buildMarkdown(result), 'utf8');
         return { ok: true, path: filePath };
       }
       if (kind === 'pdf') {
@@ -299,16 +300,17 @@ function registerIpc(): void {
         });
         const tmpHtml = path.join(app.getPath('temp'), `visapaw-print-${Date.now()}.html`);
         try {
-          fs.writeFileSync(tmpHtml, buildPrintHtml(result), 'utf8');
+          await fs.promises.writeFile(tmpHtml, buildPrintHtml(result), 'utf8');
           await printWin.loadFile(tmpHtml);
           const pdf = await printWin.webContents.printToPDF({
             pageSize: 'A4',
             printBackground: true,
           });
-          fs.writeFileSync(filePath, pdf);
+          // 异步写盘——同步写会阻塞 main 进程事件循环与全部 IPC（Kimi PR#30 P2）
+          await fs.promises.writeFile(filePath, pdf);
         } finally {
           printWin.destroy();
-          fs.rmSync(tmpHtml, { force: true });
+          await fs.promises.rm(tmpHtml, { force: true });
         }
         return { ok: true, path: filePath };
       }

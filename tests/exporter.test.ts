@@ -221,6 +221,9 @@ describe('与结果视图逐条一致（共用 buildDisplayGroups 构造保证 +
     expect(plain).toContain('英文原文：Iden*tity — Provide *original* `documents` #now [ref]');
     expect(plain).toContain('- 链接：my *doc*（https://x.example/a(b)）');
     expect(plain).not.toContain('\\*');
+    // 打印模板同样枚举条目链接，URL 纸面可见（Kimi PR#30 minor）
+    const html = buildPrintHtml(hacked);
+    expect(html).toContain('链接：<a href="https://x.example/a(b)">my *doc*</a>（https://x.example/a(b)）');
   });
 });
 
