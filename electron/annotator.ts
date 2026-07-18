@@ -8,7 +8,8 @@ import { z } from 'zod';
 
 const triggerSchema = z.union([
   z.object({ type: z.literal('all') }),
-  z.object({ type: z.literal('keyword'), keywords: z.array(z.string()).min(1) }),
+  // 关键词须含非空白字符——空串会 includes() 命中一切，把条件规则变成全量规则（Codex 外门 P2）
+  z.object({ type: z.literal('keyword'), keywords: z.array(z.string().trim().min(1)).min(1) }),
 ]);
 
 const ruleSchema = z.object({

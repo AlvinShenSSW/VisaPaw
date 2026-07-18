@@ -62,6 +62,13 @@ describe('JSON 可配置（新增规则不改代码）', () => {
     expect(() =>
       parseRules([{ id: 'X', trigger: { type: 'all' }, note: 'n', level: 'red' }])
     ).toThrow(/不合法/);
+    // 空串/纯空白关键词会命中一切条目（Codex 外门 P2）
+    expect(() =>
+      parseRules([{ id: 'X', trigger: { type: 'keyword', keywords: [''] }, note: 'n', level: 'normal' }])
+    ).toThrow(/不合法/);
+    expect(() =>
+      parseRules([{ id: 'X', trigger: { type: 'keyword', keywords: ['  '] }, note: 'n', level: 'normal' }])
+    ).toThrow(/不合法/);
   });
 
   it('覆盖仅在覆盖者触发时生效：无 R3 关键词的条目 R2 保留', () => {
