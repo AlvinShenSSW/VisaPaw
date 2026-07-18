@@ -22,6 +22,7 @@
   --warn-border: #EBD9B4;
   --danger: #C94141;
   --danger-bg: #FBEDED;
+  --danger-border: #EFC7C7;
   --shadow: 0 24px 64px rgba(31, 45, 61, .20), 0 2px 8px rgba(31, 45, 61, .08);
   --field-bg: #FFFFFF;
 }
@@ -46,6 +47,7 @@
     --warn-border: #5A4C2C;
     --danger: #E06C6C;
     --danger-bg: #402A2A;
+    --danger-border: #6A3C3C;
     --shadow: 0 24px 64px rgba(0, 0, 0, .55), 0 2px 8px rgba(0, 0, 0, .4);
     --field-bg: #25282C;
   }

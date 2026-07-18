@@ -4,7 +4,7 @@
  * VISAPAW_SMOKE=1 时窗口 ready 后自动退出（CI/本机冒烟用）。
  */
 
-import { app, BrowserWindow, ipcMain, nativeTheme, safeStorage } from 'electron';
+import { app, BrowserWindow, ipcMain, nativeTheme, safeStorage, shell } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createSettingsStore, PROVIDER_IDS, type SettingsStore, type ProviderId } from './settings-store.ts';
@@ -60,6 +60,14 @@ function createWindow(): void {
   } else {
     void win.loadURL(DEV_URL);
   }
+
+  // 外链（官网原文 ↗）交给系统浏览器打开，窗口内不导航（#11）
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('https://immi.homeaffairs.gov.au/')) {
+      void shell.openExternal(url);
+    }
+    return { action: 'deny' };
+  });
 
   if (process.env.VISAPAW_SMOKE === '1') {
     win.webContents.once('did-finish-load', () => {
