@@ -23,6 +23,9 @@ export interface Step2Props {
   state: Step2State;
   onCancel(): void;
   onOpenLogs(): void;
+  /** 错误态动作：返回表单 / 重试（Codex PR#26 P1——错误后不得困死在 Step 2） */
+  onBack(): void;
+  onRetry(): void;
 }
 
 export function Step2(props: Step2Props): React.JSX.Element {
@@ -147,7 +150,19 @@ export function Step2(props: Step2Props): React.JSX.Element {
           </div>
         )}
 
-        {state.error && <div className="gen-error">⚠️ {state.error}</div>}
+        {state.error && (
+          <div className="gen-error">
+            ⚠️ {state.error}
+            <div className="gen-error-actions">
+              <button className="btn-ghost" onClick={props.onBack}>
+                返回修改
+              </button>
+              <button className="btn-ghost" onClick={props.onRetry}>
+                重试
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="footer-actions">
@@ -164,9 +179,11 @@ export function Step2(props: Step2Props): React.JSX.Element {
             设置 → 日志
           </a>
         </span>
-        <button className="btn-ghost" onClick={props.onCancel}>
-          取消
-        </button>
+        {!state.error && (
+          <button className="btn-ghost" onClick={props.onCancel}>
+            取消
+          </button>
+        )}
       </div>
     </div>
   );

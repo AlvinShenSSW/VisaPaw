@@ -77,6 +77,8 @@ export function App(): React.JSX.Element {
           state={progress}
           onCancel={cancelGenerate}
           onOpenLogs={() => undefined /* 设置页由 #12 落地 */}
+          onBack={() => setRoute({ step: 1 })}
+          onRetry={() => startGenerate(route.selection)}
         />
       )}
       {route.step === 3 && (

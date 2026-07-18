@@ -213,6 +213,8 @@ export function createLogStore(dir: string, opts: LogStoreOptions = {}): LogStor
 export function aiEventToLog(e: AiEvent): Omit<LogEntry, 'ts'> | null {
   const label = (p: string): string => PROVIDER_LABEL[p] ?? p;
   switch (e.type) {
+    case 'attempt':
+      return null; // 每批都会发——进度供 UI，不进日志防噪
     case 'skip':
       return {
         level: 'info',

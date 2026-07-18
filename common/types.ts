@@ -136,8 +136,10 @@ export interface GenerateResult {
   fetchedAt: string;
   params: GenerateParams;
   groups: ResultGroup[];
-  /** 实际使用的 provider/模型；翻译整体失败时为 null */
+  /** 最终批次使用的 provider/模型；翻译整体失败时为 null */
   aiMeta: { provider: ProviderId; model: string } | null;
+  /** 全程参与翻译的 provider（按首次使用顺序去重）——批间 fallback 时溯源完整（红线 5） */
+  aiMetas: Array<{ provider: ProviderId; model: string }>;
   /** true = 保留英文清单（全部 provider 失败，#13 状态 D） */
   translationFailed: boolean;
 }

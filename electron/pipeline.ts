@@ -145,7 +145,8 @@ export async function generateChecklist(
         errorKind: e.errorKind,
       });
     }
-    if (e.type === 'success') {
+    if (e.type === 'attempt') {
+      // 尝试开始即上报——首批长请求期间与 fallback 切换后 UI 立即显示当前 provider
       onProgress({ type: 'provider', provider: e.provider, model: e.model });
     }
   });
@@ -153,6 +154,7 @@ export async function generateChecklist(
   const allTexts = annotated.flatMap((a) => a.items.map(({ it }) => it.text));
   const translations: string[] = [];
   let aiMeta: GenerateResult['aiMeta'] = null;
+  const aiMetas: GenerateResult['aiMetas'] = [];
   let translationFailed = false;
 
   for (let offset = 0; offset < allTexts.length; offset += TRANSLATE_BATCH_SIZE) {
@@ -162,6 +164,10 @@ export async function generateChecklist(
       const { translations: zh, meta } = await translateAi.translate(batch);
       translations.push(...zh);
       aiMeta = meta;
+      // 批间 fallback 时溯源必须完整——按首次使用顺序去重收集（Codex PR#26 P2）
+      if (!aiMetas.some((m) => m.provider === meta.provider && m.model === meta.model)) {
+        aiMetas.push(meta);
+      }
     } catch (e) {
       if (e instanceof AiExhaustedError) {
         // 全部 provider 失败：保留英文清单，分类与备注仍已注入（#13 状态 D / F6）
@@ -178,6 +184,9 @@ export async function generateChecklist(
       total: allTexts.length,
     });
   }
+
+  // 末批在途期间的取消同样生效——不得携带已取消的结果进入 Step 3（Codex PR#26 P2）
+  throwIfCancelled();
 
   if (!translationFailed) {
     run?.log('ok', '翻译', `完成 ${allTexts.length}/${allTexts.length} 条 · 结构化输出等长校验通过`);
@@ -226,6 +235,7 @@ export async function generateChecklist(
     params,
     groups,
     aiMeta,
+    aiMetas,
     translationFailed,
   };
 }

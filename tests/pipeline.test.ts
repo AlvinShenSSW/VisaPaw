@@ -63,6 +63,7 @@ describe('generateChecklist（正常链路）', () => {
     expect(result.fetchedAt).toBe('2026-07-19T06:00:00.000Z');
     expect(result.translationFailed).toBe(false);
     expect(result.aiMeta).toEqual({ provider: 'claude', model: 'claude-opus-4-8' });
+    expect(result.aiMetas).toEqual([{ provider: 'claude', model: 'claude-opus-4-8' }]);
 
     // 阶段事件顺序
     const kinds = events.map((e) => (e.type === 'phase' ? `${e.phase}:${e.status}` : e.type));
@@ -148,6 +149,53 @@ describe('generateChecklist（降级与取消）', () => {
       generateChecklist(PARAMS, { fetcher: stubFetcher(), createAiService: () => ai }, undefined, cancel)
     ).rejects.toBeInstanceOf(CancelledError);
     expect(calls).toBe(1);
+  });
+
+  it('批间 provider 切换 → aiMetas 溯源完整（Codex PR#26 P2）', async () => {
+    let batchNo = 0;
+    const ai: AiService = {
+      async translate(items: string[]) {
+        batchNo += 1;
+        const meta =
+          batchNo <= 1
+            ? { provider: 'mimo' as const, model: 'mimo-v2.5-pro' }
+            : { provider: 'claude' as const, model: 'claude-opus-4-8' };
+        return { translations: items.map(() => '中'), meta };
+      },
+      async classifySection() {
+        return { category: '品行类', meta: { provider: 'claude' as const, model: 'claude-opus-4-8' } };
+      },
+    };
+    const result = await generateChecklist(PARAMS, { fetcher: stubFetcher(), createAiService: () => ai });
+    expect(result.aiMetas).toEqual([
+      { provider: 'mimo', model: 'mimo-v2.5-pro' },
+      { provider: 'claude', model: 'claude-opus-4-8' },
+    ]);
+    expect(result.aiMeta).toEqual({ provider: 'claude', model: 'claude-opus-4-8' });
+  });
+
+  it('末批在途取消 → 组装前拦截，不返回结果（Codex PR#26 P2）', async () => {
+    const cancel = { cancelled: false };
+    const total = 34; // Streamlined 条目数超过一批
+    void total;
+    let call = 0;
+    const ai: AiService = {
+      async translate(items: string[]) {
+        call += 1;
+        return { translations: items.map(() => '中'), meta: { provider: 'claude' as const, model: 'm' } };
+      },
+      async classifySection() {
+        return { category: '品行类', meta: { provider: 'claude' as const, model: 'm' } };
+      },
+    };
+    // 在最后一批完成后、组装前取消：用 onProgress 钩子在最后一次 translate-progress 时置位
+    const onProgress = (e: ProgressEvent): void => {
+      if (e.type === 'translate-progress' && e.done === e.total) cancel.cancelled = true;
+    };
+    await expect(
+      generateChecklist(PARAMS, { fetcher: stubFetcher(), createAiService: () => ai }, onProgress, cancel)
+    ).rejects.toBeInstanceOf(CancelledError);
+    expect(call).toBeGreaterThan(0);
   });
 
   it('fallback 事件转为 fallback-note 进度（Step 2 提示条数据源）', async () => {
