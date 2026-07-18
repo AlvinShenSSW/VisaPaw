@@ -164,3 +164,41 @@ describe('fetchChecklistPage + 结构指纹', () => {
     expect(f.verifyStructure('<html></html>')).toBe(false);
   });
 });
+
+describe('Kimi 终审第二轮修复回归', () => {
+  it('id 前缀相似（RegularV2）不得误命中指纹', () => {
+    const f = createFetcher({ cacheDir: tmp() });
+    const fake = '<div id="RegularV2"><div id="Streamlined"><div id="Undetermined">';
+    expect(f.verifyStructure(fake)).toBe(false);
+  });
+
+  it('跨端点并发仍全局串行（任一时刻一个在途请求）', async () => {
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const fetchImpl = vi.fn().mockImplementation(async (url: string) => {
+      inFlight += 1;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await new Promise((r) => setTimeout(r, 5));
+      inFlight -= 1;
+      return ok(String(url).includes('Termstore') ? countriesJson : notlistedJson);
+    });
+    const f = createFetcher({ cacheDir: tmp(), fetchImpl });
+    await Promise.all([
+      f.fetchTerms('countries'),
+      f.fetchChecklistType({ countryPassport: 'CHN', provider: 'NotListed', cricosCode: ' ', studentTypeCode: '01' }),
+    ]);
+    expect(maxInFlight).toBe(1);
+  });
+
+  it('未来 fetchedAt 时间戳不算有效缓存', async () => {
+    const dir = tmp();
+    writeFileSync(
+      join(dir, 'terms-countries.json'),
+      JSON.stringify({ fetchedAt: 9_999_999_999_999, items: [{ key: 'X', value: 'Y' }] })
+    );
+    const fetchImpl = vi.fn().mockImplementation(() => Promise.resolve(ok(countriesJson)));
+    const f = createFetcher({ cacheDir: dir, fetchImpl, now: () => 1_000_000 });
+    expect((await f.fetchTerms('countries')).length).toBe(237);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+});

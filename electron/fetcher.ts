@@ -77,7 +77,9 @@ const CHECKLIST_TYPES: readonly string[] = ['Regular', 'Streamlined', 'Undetermi
 // 官网实际标签形态：`<div class="accordion" id="Regular" …>`（fixture 实测，id 前有其他属性）——
 // 属性感知匹配而非裸子串，避免 JS 字符串/无关属性误命中（Kimi 终审 P2）
 const FINGERPRINT_DIV_IDS = ['Regular', 'Streamlined', 'Undetermined'] as const;
-const fingerprintPattern = (id: string): RegExp => new RegExp(`<div[^>]*\\bid="${id}"`);
+// 值整体锚定 + 双引号风格兼容——`id="RegularV2"` 不得误命中（Kimi 终审 P2）
+const fingerprintPattern = (id: string): RegExp =>
+  new RegExp(`<div\\b[^>]*\\bid=["']${id}["'](?=[\\s/>])`);
 
 interface TermsCacheFile {
   fetchedAt: number;
@@ -94,16 +96,27 @@ export function createFetcher(deps: FetcherDeps): Fetcher {
   const timeoutMs = deps.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   // 并发同 kind 请求合流——防缓存竞态与重复官网请求（Kimi 终审 P2）
   const inFlightTerms = new Map<TermKind, Promise<TermItem[]>>();
+  // 官网请求全局串行——任一时刻至多一个在途请求（AGENTS：禁止批量并发；Kimi 终审 P2）
+  let requestChain: Promise<unknown> = Promise.resolve();
+  function serialized<T>(fn: () => Promise<T>): Promise<T> {
+    const run = requestChain.then(fn, fn);
+    requestChain = run.catch(() => undefined);
+    return run;
+  }
+
+  const errMsg = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
   async function request(pathname: string, init: RequestInit): Promise<Response> {
     let res: Response;
     try {
-      res = await fetchImpl(BASE + pathname, {
-        ...init,
-        signal: AbortSignal.timeout(timeoutMs),
-      });
+      res = await serialized(() =>
+        fetchImpl(BASE + pathname, {
+          ...init,
+          signal: AbortSignal.timeout(timeoutMs),
+        })
+      );
     } catch (e) {
-      throw new FetchError('network', `官网请求失败（网络不可达或超时）：${(e as Error).message}`);
+      throw new FetchError('network', `官网请求失败（网络不可达或超时）：${errMsg(e)}`);
     }
     if (res.status === 403) {
       throw new FetchError('forbidden', '官网拒绝访问（403）——请确认使用住宅网络、未开启 VPN/数据中心代理', 403);
@@ -119,7 +132,7 @@ export function createFetcher(deps: FetcherDeps): Fetcher {
     try {
       return await res.text();
     } catch (e) {
-      throw new FetchError('network', `官网响应读取中断：${(e as Error).message}`);
+      throw new FetchError('network', `官网响应读取中断：${errMsg(e)}`);
     }
   }
 
@@ -158,6 +171,7 @@ export function createFetcher(deps: FetcherDeps): Fetcher {
         Array.isArray(raw.items) &&
         raw.items.length > 0 &&
         raw.items.every((i) => typeof i?.key === 'string' && typeof i?.value === 'string') &&
+        raw.fetchedAt <= now() && // 未来时间戳（时钟回拨/篡改）不算有效缓存
         now() - raw.fetchedAt < TERMS_CACHE_MS
       ) {
         return raw.items;
@@ -194,9 +208,11 @@ export function createFetcher(deps: FetcherDeps): Fetcher {
         });
         fs.mkdirSync(deps.cacheDir, { recursive: true });
         const tmp = `${cacheFile(kind)}.tmp`;
-        fs.writeFileSync(tmp, JSON.stringify({ fetchedAt: now(), items } satisfies TermsCacheFile));
+        // 创建即 0600，无 chmod 窗口期（Kimi 终审 P2）
+        fs.writeFileSync(tmp, JSON.stringify({ fetchedAt: now(), items } satisfies TermsCacheFile), {
+          mode: 0o600,
+        });
         fs.renameSync(tmp, cacheFile(kind));
-        fs.chmodSync(cacheFile(kind), 0o600);
         return items;
       })();
       inFlightTerms.set(kind, task);
