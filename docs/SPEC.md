@@ -44,14 +44,15 @@
 |---|------|------|---------|
 | 1 | 国家/院校下拉 | `POST /_layouts/15/api/Termstore.aspx/GetTermsByProperty`，`termSetName` = `CountriesOfPassport` 或 `CRICOS` | ✅ 返回 `{Key:名称, Value:代码}` 全量列表 |
 | 2 | 清单类型判定 | `POST /_layouts/15/api/ESB.aspx/GetStudentDocumentChecklistType`，入参 `{countryPassport, provider, cricosCode, studentEvidenceStudyTypeCode}` | ✅ 返回 `Regular` / `Streamlined` / `Undetermined` 三值之一（CHN + 未定学校 → Streamlined） |
-| 3 | 清单内容 | `GET /visas/web-evidentiary-tool`（约 1.4MB HTML），三套清单预渲染于 `div#Regular` / `div#Streamlined` / `div#Undetermined` | ✅ Regular 版约 48KB，16 个章节 |
+| 3 | 清单内容 | `GET /visas/web-evidentiary-tool`（约 1.4MB HTML），三套清单预渲染于 `div#Regular` / `div#Streamlined` / `div#Undetermined` | ✅ Regular 15 章节 / Streamlined 13 / Undetermined 15（2026-07-19 快照 DOM 实测；此前记录的「16」不准确） |
 
 - 无需浏览器自动化、无需 reCAPTCHA token；需浏览器 UA + `Content-Type: application/json`。
 - ✅ 判定接口选定院校入参映射**已实测确认**（2026-07-19，#4 fixture 抓取会话）：`provider` = Termstore Key（校名，如 `"The University of Melbourne (UniMelb)"`）、`cricosCode` = Termstore Value（CRICOS 码，如 `"00116K"`）；未定院校为 `provider:"NotListed"`、`cricosCode:" "`。两路径均有 fixture 测试（`tests/fixtures/checklist-type-chn-*.json`）。
 - **官网对数据中心 IP 返回 403**，本机住宅 IP 正常 → 抓取必须在用户 Mac 上直连。
 - 学生类型码：`01` 普通（默认）/ `02` 中学交换 / `03` PhD 论文评审续签 / `04` DFAT 资助 / `05` 国防部资助。
 
-Regular 版清单章节（官网原始结构）：Identity / Evidence of intended study（含 Special categories）/ Welfare arrangements for under 18 / Parental consent / Health insurance / Financial capacity / English language ability / Genuine Student / Change of name / Relationship (spouse, de facto) / Employment history / Form 956 / Form 956A / Evidence of school enrolment for dependants / Research Students。
+Regular 版清单章节（官网原始结构，15 个，快照实测精确名）：Identity / Evidence of intended study / Welfare arrangements for under 18 year old student / Parental consent / Health insurance / Evidence of financial capacity / Evidence of English language ability / Genuine Student requirement / Change of name / Relationship - spouse, de facto partner / Employment history / Migration agent - Form 956 Advice by a migration agent/exempt person / Appointment or withdrawal of an authorised recipient - Form 956A / Evidence of school enrolment for dependants / Research Students。
+**Special categories 为 Undetermined 清单的独立章节**（Undetermined 还以「Evidence of your identity」替代「Identity」）；Streamlined 版 13 个章节（无 Financial capacity 与 English ability）。映射表（§5）须覆盖三套清单的全部精确章节名。
 
 ## 4. 用户故事与流程
 
