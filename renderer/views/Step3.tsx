@@ -24,6 +24,8 @@ export interface Step3Props {
   /** 状态 D：单独重试翻译（不重新抓取，#13） */
   onRetryTranslation(): void;
   retryingTranslation?: boolean;
+  /** 上次重试失败的原因——不得静默（Codex PR#29 P2） */
+  retryError?: string | null;
 }
 
 function Highlight({ text }: { text: string }): React.JSX.Element {
@@ -102,6 +104,12 @@ export function Step3(props: Step3Props): React.JSX.Element {
             >
               {props.retryingTranslation ? '重试中…' : '重试翻译'}
             </button>
+          </div>
+        )}
+        {result.translationFailed && props.retryError && (
+          <div className="trans-banner">
+            <span>⚠️</span>
+            <span className="grow">重试翻译失败：{props.retryError}（英文清单已保留，可稍后再试）</span>
           </div>
         )}
         {groups.map((g, gi) => (

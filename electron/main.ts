@@ -218,12 +218,15 @@ function registerIpc(): void {
       activeCancel = null;
     }
   });
-  // 状态 D：仅重试翻译，不重新抓取（#13）
+  // 状态 D：仅重试翻译，不重新抓取（#13）——与生成共用互斥锁（Codex PR#29 P2）
   ipcMain.handle('generate:retry-translation', async (_e, raw: unknown): Promise<GenerateOutcome> => {
+    if (activeCancel) return { ok: false, kind: 'unknown', message: '已有生成任务进行中' };
     const prev = raw as GenerateResult;
     if (!prev?.groups || !prev?.params?.country?.value) {
       return { ok: false, kind: 'unknown', message: '重试参数不合法' };
     }
+    const lock = { cancelled: false };
+    activeCancel = lock;
     const run = logs.startRun({
       country: prev.params.country.value,
       cricosCode: prev.params.school === 'undecided' ? '未定' : prev.params.school.value,
@@ -244,6 +247,8 @@ function registerIpc(): void {
     } catch (err) {
       run.finish('error');
       return { ok: false, ...mapGenerateError(err) };
+    } finally {
+      activeCancel = null;
     }
   });
   ipcMain.handle('generate:cancel', () => {

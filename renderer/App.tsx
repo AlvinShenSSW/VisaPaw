@@ -25,6 +25,7 @@ export function App(): React.JSX.Element {
   const [progress, setProgress] = useState<Step2State>({ phase: 'search' });
   const [enAllOpen, setEnAllOpen] = useState(false);
   const [retrying, setRetrying] = useState(false);
+  const [retryError, setRetryError] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [settingsTab, setSettingsTab] = useState<'provider' | 'logs'>('provider');
   const unsubRef = useRef<(() => void) | null>(null);
@@ -167,15 +168,27 @@ export function App(): React.JSX.Element {
             console.warn(`导出（${kind}）由 #14 实现`);
           }}
           retryingTranslation={retrying}
+          retryError={retryError}
           onRetryTranslation={() => {
             if (!window.visapaw || retrying) return;
             setRetrying(true);
+            setRetryError(null);
+            const target = route.result;
             window.visapaw
-              .retryTranslation(route.result)
+              .retryTranslation(target)
               .then((outcome) => {
                 if (!mountedRef.current) return;
-                // 重试成功 → 无缝进入完整结果视图；失败保持英文态（日志可查）
-                if (outcome.ok) setRoute({ step: 3, result: outcome.result });
+                if (outcome.ok) {
+                  // 仅当仍停留在同一结果时才替换——防迟到响应覆盖新导航（Codex PR#29 P2）
+                  setRoute((prev) =>
+                    prev.step === 3 && prev.result === target
+                      ? { step: 3, result: outcome.result }
+                      : prev
+                  );
+                } else {
+                  // 重试失败必须显性化，英文清单保留（Codex PR#29 P2）
+                  setRetryError(outcome.message);
+                }
               })
               .finally(() => {
                 if (mountedRef.current) setRetrying(false);

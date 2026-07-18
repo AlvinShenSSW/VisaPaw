@@ -23,7 +23,30 @@ export function ErrorView(props: ErrorViewProps): React.JSX.Element {
   const { outcome } = props;
   if (outcome.kind === 'structure') return <WebViewFallback {...props} />;
   if (outcome.kind === 'forbidden') return <ForbiddenPanel {...props} />;
-  return <NetworkPanel {...props} />;
+  if (outcome.kind === 'network') return <NetworkPanel {...props} />;
+  // unknown ≠ 网络故障——不得谎称官网超时/未耗额度（Codex PR#29 P2）
+  return <UnknownPanel {...props} />;
+}
+
+/* 未知错误（参数/内部异常/任务互斥等） */
+function UnknownPanel(props: ErrorViewProps): React.JSX.Element {
+  return (
+    <div className="err-panel">
+      <div className="err-icon">⚠️</div>
+      <h3>生成过程中出现意外错误</h3>
+      <p>本次生成未能完成。可返回修改后重试；若反复出现，请在 设置 → 日志 查看详细执行记录。</p>
+      <div className="err-actions">
+        <DetailToggle message={props.outcome.message} />
+        <button className="btn" onClick={props.onBack}>
+          返回
+        </button>
+        <button className="btn btn-primary" onClick={props.onRetry}>
+          重试
+        </button>
+      </div>
+      <div className="err-detail">错误代码：UNEXPECTED · {timestamp()}</div>
+    </div>
+  );
 }
 
 function DetailToggle({ message }: { message: string }): React.JSX.Element {
