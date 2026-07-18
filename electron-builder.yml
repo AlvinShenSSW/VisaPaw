@@ -1,0 +1,14 @@
+# 打包配置（仅 macOS，Iteration 1）
+appId: com.alvinshen.visapaw
+productName: VisaPaw
+directories:
+  output: dist-app
+files:
+  - dist-electron/**
+  - dist-renderer/**
+  - package.json
+mac:
+  category: public.app-category.productivity
+  target:
+    - dmg
+    - zip

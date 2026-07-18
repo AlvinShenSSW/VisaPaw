@@ -1,0 +1,17 @@
+// Typecheck Electron main/preload 与单测（Node 侧，与 renderer 的 bundler/JSX 配置分离）。
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "types": ["node"]
+  },
+  "include": ["electron/**/*.ts", "common/**/*.ts", "tests/**/*.ts"],
+  "exclude": ["node_modules"]
+}

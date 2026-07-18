@@ -1,0 +1,42 @@
+{
+  "name": "visapaw",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "VisaPaw — 澳大利亚学生签证（Subclass 500）材料清单 Mac 桌面工具：官网实时检索 + 中文翻译 + 分类 + 合规备注 + 导出",
+  "author": "Alvin Shen",
+  "main": "dist-electron/main.cjs",
+  "scripts": {
+    "dev": "concurrently -k -n vite,electron \"vite\" \"npm run dev:electron\"",
+    "dev:renderer": "vite",
+    "dev:electron": "node esbuild.electron.mjs && wait-on tcp:5274 && electron dist-electron/main.cjs",
+    "build": "npm run typecheck && vite build && npm run typecheck:electron && npm run build:electron",
+    "build:electron": "node esbuild.electron.mjs",
+    "typecheck": "tsc --noEmit",
+    "typecheck:electron": "tsc -p tsconfig.electron.json --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "smoke": "npm run build:electron && env -u ELECTRON_RUN_AS_NODE VISAPAW_SMOKE=1 electron dist-electron/main.cjs",
+    "dist": "npm run build && electron-builder"
+  },
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "concurrently": "^9.1.0",
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8",
+    "esbuild": "^0.24.2",
+    "eslint": "^9.17.0",
+    "typescript": "^5.5.3",
+    "typescript-eslint": "^8.19.0",
+    "vite": "^5.4.0",
+    "vitest": "^2.1.8",
+    "wait-on": "^8.0.1"
+  }
+}
