@@ -160,7 +160,9 @@ export function createAiService(deps: AiServiceDeps): AiService {
           model,
           errorKind: err.kind,
           message: err.message,
-          next: providers.slice(i + 1).find((p) => p.enabled)?.id,
+          // 下家必须真的可尝试：已启用且配了 key——否则日志会指向一个立即被 skip 的
+          // provider（Codex 外门 P2）
+          next: providers.slice(i + 1).find((p) => p.enabled && deps.getKey(p.id))?.id,
         });
       }
     }

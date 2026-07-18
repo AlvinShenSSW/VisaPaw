@@ -72,16 +72,18 @@ export function createLogStore(dir: string, opts: LogStoreOptions = {}): LogStor
   }
 
   function allRuns(): RunLog[] {
-    let files: string[];
-    try {
-      files = fs.readdirSync(dir).filter((f) => f.startsWith('run-') && f.endsWith('.json'));
-    } catch {
-      return [];
-    }
-    return files
+    return listRunFiles()
       .map(readRunFile)
       .filter((r): r is RunLog => r !== null)
       .sort((a, b) => b.summary.startedAt - a.summary.startedAt);
+  }
+
+  function listRunFiles(): string[] {
+    try {
+      return fs.readdirSync(dir).filter((f) => f.startsWith('run-') && f.endsWith('.json'));
+    } catch {
+      return [];
+    }
   }
 
   function prune(): void {
@@ -93,6 +95,17 @@ export function createLogStore(dir: string, opts: LogStoreOptions = {}): LogStor
         /* 已不存在则忽略 */
       }
     }
+    // 损坏文件对用户不可见也不可用——一并清除，避免磁盘残留（Codex 外门 P2）
+    const validIds = new Set(runs.map((r) => `${r.summary.id}.json`));
+    for (const f of listRunFiles()) {
+      if (!validIds.has(f)) {
+        try {
+          fs.rmSync(path.join(dir, f));
+        } catch {
+          /* 忽略 */
+        }
+      }
+    }
   }
 
   return {
@@ -100,8 +113,15 @@ export function createLogStore(dir: string, opts: LogStoreOptions = {}): LogStor
       const startedAt = now();
       seq += 1;
       const id = `run-${startedAt}-${seq}`;
+      // 白名单重建——结构化类型允许多余属性经变量流入，直接落盘会持久化
+      // 表单对象上的任何额外字段（如姓名），违反无个人信息保证（Codex 外门 P1）
+      const safeParams: RunParams = {
+        country: params.country,
+        cricosCode: params.cricosCode,
+        studentTypeCode: params.studentTypeCode,
+      };
       const run: RunLog = {
-        summary: { id, startedAt, params, status: 'running' },
+        summary: { id, startedAt, params: safeParams, status: 'running' },
         entries: [],
       };
       writeRun(run);
@@ -146,9 +166,10 @@ export function createLogStore(dir: string, opts: LogStoreOptions = {}): LogStor
     },
 
     clear() {
-      for (const run of allRuns()) {
+      // 枚举原始文件而非解析成功的运行——损坏文件也必须清除（Codex 外门 P2）
+      for (const f of listRunFiles()) {
         try {
-          fs.rmSync(fileOf(run.summary.id));
+          fs.rmSync(path.join(dir, f));
         } catch {
           /* 忽略 */
         }
