@@ -67,6 +67,17 @@ export interface RunLog {
   entries: LogEntry[];
 }
 
+/* ------------------------------ 官网下拉数据（#4/#9） ------------------------------ */
+
+export interface TermItem {
+  /** 名称（国家英文名 / 院校名） */
+  key: string;
+  /** 代码（国家 ISO3 / 院校 CRICOS 码） */
+  value: string;
+}
+
+export type TermKind = 'countries' | 'cricos';
+
 export interface VisapawBridge {
   getSettings(): Promise<Settings>;
   setSettings(patch: Partial<Settings>): Promise<Settings>;
@@ -74,6 +85,8 @@ export interface VisapawBridge {
   deleteProviderKey(provider: ProviderId): Promise<VaultStatus>;
   getProviderKeyStatus(): Promise<VaultStatus>;
   getSystemStatus(): Promise<{ dark: boolean; version: string }>;
+  /** Termstore 下拉数据（main 侧 7 天缓存；smoke 模式返回空） */
+  getTerms(kind: TermKind): Promise<TermItem[]>;
   listRunLogs(): Promise<RunSummary[]>;
   getRunLog(id: string): Promise<RunLog | null>;
   /** 导出为文本（#12「导出日志」——渲染层负责落盘对话框） */

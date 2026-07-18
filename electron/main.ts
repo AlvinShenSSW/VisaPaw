@@ -10,12 +10,14 @@ import path from 'node:path';
 import { createSettingsStore, PROVIDER_IDS, type SettingsStore, type ProviderId } from './settings-store.ts';
 import { createCredentialStore, type CredentialStore, type SafeCrypto } from './credential-store.ts';
 import { createLogStore, type LogStore } from './logging.ts';
+import { createFetcher, type Fetcher } from './fetcher.ts';
 
 const DEV_URL = process.env.VITE_DEV_SERVER_URL || 'http://localhost:5274';
 
 let settings: SettingsStore;
 let credentials: CredentialStore;
 let logs: LogStore;
+let fetcher: Fetcher;
 
 function initStores(): void {
   const userData = app.getPath('userData');
@@ -27,6 +29,7 @@ function initStores(): void {
   settings = createSettingsStore(path.join(userData, 'settings.json'));
   credentials = createCredentialStore(path.join(userData, 'credentials.bin'), crypto);
   logs = createLogStore(path.join(userData, 'logs'));
+  fetcher = createFetcher({ cacheDir: path.join(userData, 'terms-cache') });
 }
 
 function createWindow(): void {
@@ -108,6 +111,12 @@ function registerIpc(): void {
     });
   });
   ipcMain.handle('credentials:status', () => credentials.getStatus());
+  // Termstore 下拉数据（#9）——smoke 模式不发真实请求（低频红线）
+  ipcMain.handle('terms:get', (_e, kind: unknown) => {
+    if (kind !== 'countries' && kind !== 'cricos') throw new Error(`未知的 term kind：${String(kind)}`);
+    if (process.env.VISAPAW_SMOKE === '1') return [];
+    return fetcher.fetchTerms(kind);
+  });
   // 生成日志（#15）——#12 日志标签页数据源
   ipcMain.handle('logs:list', () => logs.listRuns());
   ipcMain.handle('logs:get', (_e, id: unknown) => {

@@ -55,47 +55,6 @@ body {
   height: 100%;
 }
 
-.content {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--window);
-}
-
-.placeholder-card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 28px 36px;
-  text-align: center;
-  box-shadow: var(--shadow);
-}
-
-.placeholder-card h1 {
-  font-size: var(--fs-body-lg);
-  margin-bottom: 8px;
-}
-
-.placeholder-card p {
-  color: var(--text-2);
-  font-size: var(--fs-small);
-}
-
-.steps {
-  display: flex;
-  gap: 8px;
-  justify-content: center;
-  margin-top: 14px;
-  color: var(--text-3);
-  font-size: var(--fs-small);
-}
-
-.steps .active {
-  color: var(--accent);
-  font-weight: 600;
-}
-
 .statusbar {
   height: 28px;
   display: flex;
@@ -113,4 +72,10 @@ body {
   height: 7px;
   border-radius: 50%;
   background: var(--ok);
+  display: inline-block;
+  margin-right: 5px;
+}
+
+.statusbar .right {
+  margin-left: auto;
 }
