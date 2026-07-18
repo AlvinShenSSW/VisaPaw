@@ -47,6 +47,7 @@
 | 3 | 清单内容 | `GET /visas/web-evidentiary-tool`（约 1.4MB HTML），三套清单预渲染于 `div#Regular` / `div#Streamlined` / `div#Undetermined` | ✅ Regular 版约 48KB，16 个章节 |
 
 - 无需浏览器自动化、无需 reCAPTCHA token；需浏览器 UA + `Content-Type: application/json`。
+- ⚠️ 判定接口仅实测过「未定院校」入参（`provider:"NotListed"`、`cricosCode:" "`）；**选定院校时的入参映射（推测为 provider=Termstore Key、cricosCode=Termstore Value）待 #4 落地时抓包实测确认并回填本节**，实测前不得当作事实实现。
 - **官网对数据中心 IP 返回 403**，本机住宅 IP 正常 → 抓取必须在用户 Mac 上直连。
 - 学生类型码：`01` 普通（默认）/ `02` 中学交换 / `03` PhD 论文评审续签 / `04` DFAT 资助 / `05` 国防部资助。
 
@@ -65,7 +66,7 @@ Regular 版清单章节（官网原始结构）：Identity / Evidence of intende
 异常流程：
 
 - 官网 403 / 网络失败 → 明确报错并允许重试。
-- 结构指纹校验失败（官网改版）→ 降级为内嵌 WebView 打开官网 + 提示等待 App 更新。
+- 结构指纹校验失败（官网改版）→ 降级为内嵌 WebView 打开官网 + 提示等待 App 更新。WebView 仅加载官网基础 URL；官网页面无公开的预填查询参数，表单预填为 best-effort，默认由用户在官网表单中手动补全（含学生类型等已选项，UI 需展示用户此前的全部选择供其照抄）。
 - AI provider 失败（认证失败 / 限流 / 套餐额度耗尽 / 服务端错误）→ 自动按顺序 fallback 到下一个已启用 provider，UI 标注实际使用的 provider；全部失败则保留英文清单结果，提示翻译暂不可用，可重试翻译环节。
 
 ## 5. 分类方案
@@ -84,6 +85,7 @@ Regular 版清单章节（官网原始结构）：Identity / Evidence of intende
 
 - 映射表未命中的新章节：由 Claude 兜底归类，文档中标注「自动归类」，并触发「映射表需更新」告警（兼作官网改版探测器）。
 - 映射表以配置文件（JSON/TS 常量）维护，不硬编码在解析逻辑里。
+- 上表章节名为简写；**映射键必须与 parser 从官网快照实际抽取的章节名逐字对齐**（如 `Welfare arrangements for under 18`、`Evidence of school enrolment for dependants`），归一化规则（trim/大小写/空白折叠）在 #6 中定义并对 §3 全部章节做覆盖测试；`Special categories` 随父章节归入教育与工作背景类，不走 AI 兜底。
 
 ## 6. 备注规则引擎（确定性，不走 LLM）
 
@@ -114,6 +116,7 @@ Regular 版清单章节（官网原始结构）：Identity / Evidence of intende
 ```
 
 - 标题与元信息**本地拼接**（不经过 AI，见 §9 隐私约束）；标题不含姓名等任何个人信息。
+- 抓取时间内部一律存 **UTC**，展示与导出时转为用户本地时区并带偏移量（如 `2026-07-19 14:32 +10:00`）；上例中的 `AEST` 仅为示意。
 - 双语对照：中文为主，英文原文可展开/括注；官方术语保留英文括注（CoE、OSHC、GS、CRICOS…）。
 
 ## 8. 技术架构
