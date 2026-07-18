@@ -20,6 +20,7 @@
     "dist": "npm run build && electron-builder"
   },
   "dependencies": {
+    "cheerio": "^1.2.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
