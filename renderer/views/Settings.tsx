@@ -34,6 +34,8 @@ const TABS: Array<{ id: TabId; icon: string; label: string }> = [
   { id: 'about', icon: 'ℹ️', label: '关于' },
 ];
 
+export type SettingsTabId = TabId;
+
 export interface SettingsViewProps {
   settings: AppSettings;
   onSettingsChange(next: AppSettings): void;
@@ -70,6 +72,7 @@ function ProviderTab(props: SettingsViewProps): React.JSX.Element {
   const [editing, setEditing] = useState<ProviderId | null>(null);
   const [draftKey, setDraftKey] = useState('');
   const [dragFrom, setDragFrom] = useState<number | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const refreshKeys = (): void => {
     window.visapaw?.getProviderKeyStatus().then(setKeyStatus).catch(() => setKeyStatus(null));
@@ -79,9 +82,17 @@ function ProviderTab(props: SettingsViewProps): React.JSX.Element {
   const providers = props.settings.providers;
 
   const persist = (nextProviders: ProviderSetting[]): void => {
-    const next = { ...props.settings, providers: nextProviders };
-    props.onSettingsChange(next);
-    window.visapaw?.setSettings({ providers: nextProviders }).catch(() => undefined);
+    const prev = props.settings;
+    props.onSettingsChange({ ...prev, providers: nextProviders });
+    setSaveError(null);
+    window.visapaw
+      ?.setSettings({ providers: nextProviders })
+      .then((saved) => props.onSettingsChange(saved)) // 以持久化结果为准
+      .catch((e: Error) => {
+        // 落盘失败必须回滚并显性化——否则展示链与持久化不一致（Codex PR#28 P2）
+        props.onSettingsChange(prev);
+        setSaveError(`设置保存失败：${e.message}`);
+      });
   };
 
   const saveKey = (id: ProviderId): void => {
@@ -110,6 +121,7 @@ function ProviderTab(props: SettingsViewProps): React.JSX.Element {
         <span className="arrows">⇅</span>
         拖动左侧手柄调整 fallback 顺序 · 三家共用同一份术语表与 prompt 模板，切换后术语一致
       </div>
+      {saveError && <div className="p-note warn">⚠️ {saveError}</div>}
 
       {providers.map((p, i) => {
         const meta = providerMeta(p.id);
@@ -260,7 +272,29 @@ function LogsTab(): React.JSX.Element {
       setRunLog(null);
       return;
     }
-    window.visapaw?.getRunLog(selected).then(setRunLog).catch(() => setRunLog(null));
+    let stop = false;
+    const load = (): void => {
+      window.visapaw
+        ?.getRunLog(selected)
+        .then((log) => {
+          if (!stop) setRunLog(log);
+        })
+        .catch(() => {
+          if (!stop) setRunLog(null);
+        });
+    };
+    load();
+    // 运行中的 run 持续刷新——生成期间打开日志页也能看到实时条目（Codex PR#28 P2）
+    const timer = setInterval(() => {
+      setRunLog((cur) => {
+        if (cur?.summary.status === 'running') load();
+        return cur;
+      });
+    }, 1000);
+    return () => {
+      stop = true;
+      clearInterval(timer);
+    };
   }, [selected]);
 
   const exportLog = (): void => {

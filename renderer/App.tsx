@@ -20,6 +20,7 @@ export function App(): React.JSX.Element {
   const [progress, setProgress] = useState<Step2State>({ phase: 'search' });
   const [enAllOpen, setEnAllOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [settingsTab, setSettingsTab] = useState<'provider' | 'logs'>('provider');
   const unsubRef = useRef<(() => void) | null>(null);
   const mountedRef = useRef(true);
 
@@ -112,7 +113,12 @@ export function App(): React.JSX.Element {
         </span>
       </header>
       {showSettings && settings && (
-        <SettingsView settings={settings} onSettingsChange={setSettings} />
+        <SettingsView
+          key={settingsTab}
+          settings={settings}
+          onSettingsChange={setSettings}
+          initialTab={settingsTab}
+        />
       )}
       {!showSettings && route.step === 1 && <Step1 settings={settings} onGenerate={startGenerate} />}
       {!showSettings && route.step === 2 && (
@@ -120,7 +126,11 @@ export function App(): React.JSX.Element {
           selection={route.selection}
           state={progress}
           onCancel={cancelGenerate}
-          onOpenLogs={() => undefined /* 设置页由 #12 落地 */}
+          onOpenLogs={() => {
+            // 生成期间可直达 设置 → 日志（Codex PR#28 P2）
+            setSettingsTab('logs');
+            setShowSettings(true);
+          }}
           onBack={() => setRoute({ step: 1 })}
           onRetry={() => startGenerate(route.selection)}
         />
