@@ -290,16 +290,32 @@ describe('场景 5：导出一致性（Markdown / 纯文本(剪贴板) / 打印 
     const plain = buildPlainText(result);
     const html = buildPrintHtml(result);
 
-    // 连续编号完整：1..N 全部出现在三种导出物
+    // 连续编号完整：1..N；编号与条目全文作为同一行断言且按序出现——
+    // 独立 toContain 在行序错乱/同前缀互换时仍会通过（Codex PR#31 P2）
     expect(rows.map((r) => r.no)).toEqual(rows.map((_, i) => i + 1));
+    const mdEsc = (s: string): string =>
+      s.replace(/([\\`*_[\]#])/g, '\\$1').replace(/\n/g, ' ');
+    const htmlEsc = (s: string): string =>
+      s
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    let prevPlain = -1;
+    let prevMd = -1;
+    let prevHtml = -1;
     for (const row of rows) {
-      const main = (row.item.zh ?? row.item.en).slice(0, 8);
-      expect(md).toContain(`${row.no}. `);
-      expect(plain).toContain(`${row.no}. `);
-      expect(html).toContain(`>${row.no}.</span>`);
-      expect(md).toContain(main);
-      expect(plain).toContain(main);
-      expect(html).toContain(main);
+      const main = row.item.zh ?? row.item.en;
+      const plainPos = plain.indexOf(`\n${row.no}. ${main}`);
+      expect(plainPos).toBeGreaterThan(prevPlain);
+      prevPlain = plainPos;
+      const mdPos = md.indexOf(`\n${row.no}. ${mdEsc(main)}`);
+      expect(mdPos).toBeGreaterThan(prevMd);
+      prevMd = mdPos;
+      const htmlPos = html.indexOf(`>${row.no}.</span><span class="zh">${htmlEsc(main)}`);
+      expect(htmlPos).toBeGreaterThan(prevHtml);
+      prevHtml = htmlPos;
     }
     // 分组标题与条数一致
     for (const g of groups) {
