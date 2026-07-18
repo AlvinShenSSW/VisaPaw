@@ -174,8 +174,9 @@ export function App(): React.JSX.Element {
               ?.exportResult(kind, route.result)
               .then((r) => {
                 if (!mountedRef.current) return;
-                // 失败必须用户可见（Codex PR#30 P2）；用户取消不算失败
-                if (!r.ok && r.message !== '已取消') setExportError(r.message);
+                // 失败必须用户可见（Codex PR#30 P2）；用户取消是结构化标志
+                // 而非文案匹配（Kimi PR#30 P2），不算失败
+                if (!r.ok && !r.cancelled) setExportError(r.message);
               })
               .catch((e: Error) => {
                 if (mountedRef.current) setExportError(e.message);

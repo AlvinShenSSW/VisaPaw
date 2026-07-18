@@ -153,6 +153,75 @@ describe('与结果视图逐条一致（共用 buildDisplayGroups 构造保证 +
     expect(html).toContain('&lt;script&gt;');
     expect(html).toContain('中 &amp; 文 &lt;b&gt;');
   });
+
+  it('HTML 属性转义：URL/文本中的引号不可逃出属性（Kimi PR#30 P2）', async () => {
+    const r = await result();
+    const hacked: GenerateResult = {
+      ...r,
+      groups: [
+        {
+          category: '个人身份类',
+          sections: [
+            {
+              name: 'S',
+              anchorId: null,
+              autoClassified: false,
+              pendingManual: false,
+              items: [
+                {
+                  en: 'x',
+                  zh: '中',
+                  links: [{ text: 't', href: 'https://x.example/a" onclick="alert(1)' }],
+                  notes: [],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const html = buildPrintHtml(hacked);
+    expect(html).not.toContain('" onclick="');
+    expect(html).toContain('&quot; onclick=&quot;');
+  });
+
+  it('Markdown 元字符转义：原文 */`/#/[] 不破坏结构；纯文本保持原样（Kimi PR#30 P2）', async () => {
+    const r = await result();
+    const hacked: GenerateResult = {
+      ...r,
+      groups: [
+        {
+          category: '个人身份类',
+          sections: [
+            {
+              name: 'Iden*tity',
+              anchorId: null,
+              autoClassified: false,
+              pendingManual: false,
+              items: [
+                {
+                  en: 'Provide *original* `documents` #now [ref]',
+                  zh: '含*星号*的译文',
+                  links: [{ text: 'my *doc*', href: 'https://x.example/a(b)' }],
+                  notes: [],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const md = buildMarkdown(hacked);
+    expect(md).toContain('含\\*星号\\*的译文');
+    expect(md).toContain('Iden\\*tity — Provide \\*original\\* \\`documents\\` \\#now \\[ref\\]');
+    expect(md).toContain('[my \\*doc\\*](<https://x.example/a(b)>)');
+    // 纯文本从结构化数据直接生成——不残留任何转义符/格式符
+    const plain = buildPlainText(hacked);
+    expect(plain).toContain('含*星号*的译文');
+    expect(plain).toContain('英文原文：Iden*tity — Provide *original* `documents` #now [ref]');
+    expect(plain).toContain('- 链接：my *doc*（https://x.example/a(b)）');
+    expect(plain).not.toContain('\\*');
+  });
 });
 
 describe('降级态导出（翻译失败仍完整）', () => {

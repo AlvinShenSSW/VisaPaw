@@ -32,9 +32,15 @@ function sourceLine(result: GenerateResult): string {
 
 const ensurePeriod = (t: string): string => (/[。.!？?]$/.test(t) ? t : `${t}。`);
 
-/** 尖括号 URL 形式 + 文本方括号转义——防 ]/() 破坏链接语法（Kimi PR#30 minor） */
+/**
+ * 官网英文/AI 译文可含 * _ ` [ ] # 等 Markdown 元字符——不转义会意外产生
+ * 强调/代码/标题并破坏列表结构（Kimi PR#30 P2）。备注为本地确定性文案，不经此转义。
+ */
+const mdEscape = (s: string): string => s.replace(/([\\`*_[\]#])/g, '\\$1');
+
+/** 尖括号 URL 形式 + 文本元字符转义——防 ]/() 破坏链接语法（Kimi PR#30 minor） */
 const mdLink = (text: string, href: string): string =>
-  `[${text.replace(/([[\]])/g, '\\$1').replace(/\n/g, ' ')}](<${href}>)`;
+  `[${mdEscape(text).replace(/\n/g, ' ')}](<${href}>)`;
 
 /** 与 Step3 相同的原文链接回退：条目首链 → 清单页锚点（Codex PR#30 P2） */
 function itemSourceUrl(row: {
@@ -67,10 +73,10 @@ export function buildMarkdown(result: GenerateResult): string {
       ].join('');
       // 续行缩进随编号宽度自适应——两位数编号下固定 3 空格会破坏列表结构（Codex PR#30 P2）
       const pad = ' '.repeat(String(row.no).length + 2);
-      lines.push(`${row.no}. ${main}${tags}`);
+      lines.push(`${row.no}. ${mdEscape(main)}${tags}`);
       const src = itemSourceUrl(row);
       if (row.item.zh !== undefined) {
-        lines.push(`${pad}> ${row.sectionName} — ${row.item.en}${src ? ` ${mdLink('官网原文 ↗', src)}` : ''}`);
+        lines.push(`${pad}> ${mdEscape(row.sectionName)} — ${mdEscape(row.item.en)}${src ? ` ${mdLink('官网原文 ↗', src)}` : ''}`);
       } else if (src) {
         lines.push(`${pad}> ${mdLink('官网原文 ↗', src)}`);
       }
@@ -93,14 +99,46 @@ export function buildMarkdown(result: GenerateResult): string {
   return lines.join('\n');
 }
 
-/** 纯文本（剪贴板 text/plain） */
+/**
+ * 纯文本（剪贴板 text/plain）——直接从结构化展示数据生成，不做 Markdown 二次
+ * 正则清洗：原文可含 Markdown 元字符，正则推导既残留格式符又依赖替换顺序
+ * （Kimi PR#30 P2）。与 Markdown 同源于 buildDisplayGroups，逐条一致仍由构造保证。
+ */
 export function buildPlainText(result: GenerateResult): string {
-  return buildMarkdown(result)
-    .replace(/^# /gm, '')
-    .replace(/^## /gm, '')
-    .replace(/^(\s*)> /gm, '$1英文原文：')
-    .replace(/\[([^\]]+)\]\(<([^>]+)>\)/g, '$1（$2）')
-    .replace(/^---$/gm, '——————————');
+  const lines: string[] = [TITLE, '', metaLine(result), '', sourceLine(result), ''];
+  for (const [gi, g] of buildDisplayGroups(result).entries()) {
+    lines.push(`${cnIndex(gi)}、${g.category}`, '');
+    for (const row of g.items) {
+      const main = row.item.zh ?? row.item.en;
+      const tags = [
+        row.autoClassified ? '〔✦ 自动归类〕' : '',
+        row.pendingManual ? '〔◌ 待人工归类〕' : '',
+      ].join('');
+      const pad = ' '.repeat(String(row.no).length + 2);
+      lines.push(`${row.no}. ${main}${tags}`);
+      const src = itemSourceUrl(row);
+      if (row.item.zh !== undefined) {
+        lines.push(`${pad}英文原文：${row.sectionName} — ${row.item.en}${src ? ` 官网原文 ↗（${src}）` : ''}`);
+      } else if (src) {
+        lines.push(`${pad}英文原文：官网原文 ↗（${src}）`);
+      }
+      for (const link of row.item.links) {
+        lines.push(`${pad}- 链接：${link.text}（${link.href}）`);
+      }
+      for (const n of row.item.notes) {
+        lines.push(`${pad}- ${n.level === 'warning' ? '⚠️ ' : ''}备注：${ensurePeriod(n.note.replace(/^⚠️\s*/, ''))}`);
+      }
+      if (row.autoClassified) {
+        lines.push(`${pad}- 备注：本条为官网新增章节，由 AI 兜底归入「${row.autoCategory}」，请人工复核；映射表待更新。`);
+      }
+      if (row.pendingManual) {
+        lines.push(`${pad}- 备注：AI 兜底不可用，本章节暂归入「待人工归类」，请人工确认所属分类。`);
+      }
+      lines.push('');
+    }
+  }
+  lines.push('——————————', '', DISCLAIMER, '');
+  return lines.join('\n');
 }
 
 /** 打印模板（Electron printToPDF）——延续结果页设计语言的浅色打印适配 */

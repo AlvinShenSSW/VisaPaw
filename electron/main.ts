@@ -14,7 +14,7 @@ import { createFetcher, type Fetcher } from './fetcher.ts';
 import { createAiService } from './ai/orchestrator.ts';
 import { generateChecklist, mapGenerateError, retranslateResult } from './pipeline.ts';
 import { buildMarkdown, buildPlainText, buildPrintHtml } from './exporter.ts';
-import type { GenerateOutcome, GenerateParams, GenerateResult, ProgressEvent } from '../common/types.ts';
+import type { ExportOutcome, GenerateOutcome, GenerateParams, GenerateResult, ProgressEvent } from '../common/types.ts';
 
 const DEV_URL = process.env.VITE_DEV_SERVER_URL || 'http://localhost:5274';
 
@@ -262,62 +262,63 @@ function registerIpc(): void {
   });
 
   // 导出（#14）——markdown/pdf 保存框写文件；copy 剪贴板双格式
-  ipcMain.handle(
-    'export:result',
-    async (
-      _e,
-      kind: unknown,
-      raw: unknown
-    ): Promise<{ ok: true; path?: string } | { ok: false; message: string }> => {
-      const result = raw as GenerateResult;
-      if (!result?.groups || !result?.checklistType || !result?.fetchedAt) {
-        return { ok: false, message: '导出数据不完整' };
-      }
-      try {
-        if (kind === 'copy') {
-          clipboard.write({ text: buildPlainText(result), html: buildPrintHtml(result) });
-          return { ok: true };
-        }
-        if (kind === 'markdown') {
-          const { canceled, filePath } = await dialog.showSaveDialog({
-            defaultPath: `澳大利亚学生签证材料清单-${result.checklistType}.md`,
-            filters: [{ name: 'Markdown', extensions: ['md'] }],
-          });
-          if (canceled || !filePath) return { ok: false, message: '已取消' };
-          fs.writeFileSync(filePath, buildMarkdown(result), 'utf8');
-          return { ok: true, path: filePath };
-        }
-        if (kind === 'pdf') {
-          const { canceled, filePath } = await dialog.showSaveDialog({
-            defaultPath: `澳大利亚学生签证材料清单-${result.checklistType}.pdf`,
-            filters: [{ name: 'PDF', extensions: ['pdf'] }],
-          });
-          if (canceled || !filePath) return { ok: false, message: '已取消' };
-          // 隐藏窗口渲染专用打印模板 → printToPDF（无额外依赖，SPEC §8）
-          const printWin = new BrowserWindow({
-            show: false,
-            webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false },
-          });
-          try {
-            await printWin.loadURL(
-              `data:text/html;charset=utf-8,${encodeURIComponent(buildPrintHtml(result))}`
-            );
-            const pdf = await printWin.webContents.printToPDF({
-              pageSize: 'A4',
-              printBackground: true,
-            });
-            fs.writeFileSync(filePath, pdf);
-          } finally {
-            printWin.destroy();
-          }
-          return { ok: true, path: filePath };
-        }
-        return { ok: false, message: `未知导出类型：${String(kind)}` };
-      } catch (err) {
-        return { ok: false, message: (err as Error).message };
-      }
+  let activeExport = false; // 并发互斥：防重复保存框/并发隐藏窗口（Kimi PR#30 P2）
+  ipcMain.handle('export:result', async (_e, kind: unknown, raw: unknown): Promise<ExportOutcome> => {
+    const result = raw as GenerateResult;
+    if (!result?.groups || !result?.checklistType || !result?.fetchedAt) {
+      return { ok: false, message: '导出数据不完整' };
     }
-  );
+    if (activeExport) return { ok: false, message: '已有导出进行中，请稍候' };
+    activeExport = true;
+    try {
+      if (kind === 'copy') {
+        clipboard.write({ text: buildPlainText(result), html: buildPrintHtml(result) });
+        return { ok: true };
+      }
+      if (kind === 'markdown') {
+        const { canceled, filePath } = await dialog.showSaveDialog({
+          defaultPath: `澳大利亚学生签证材料清单-${result.checklistType}.md`,
+          filters: [{ name: 'Markdown', extensions: ['md'] }],
+        });
+        if (canceled || !filePath) return { ok: false, cancelled: true, message: '已取消' };
+        fs.writeFileSync(filePath, buildMarkdown(result), 'utf8');
+        return { ok: true, path: filePath };
+      }
+      if (kind === 'pdf') {
+        const { canceled, filePath } = await dialog.showSaveDialog({
+          defaultPath: `澳大利亚学生签证材料清单-${result.checklistType}.pdf`,
+          filters: [{ name: 'PDF', extensions: ['pdf'] }],
+        });
+        if (canceled || !filePath) return { ok: false, cancelled: true, message: '已取消' };
+        // 隐藏窗口渲染专用打印模板 → printToPDF（无额外依赖，SPEC §8）。
+        // 经临时文件 loadFile 而非 data: URL——长清单会逼近 Chromium data URL
+        // 长度上限导致 loadURL 失败（Kimi PR#30 minor）
+        const printWin = new BrowserWindow({
+          show: false,
+          webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false },
+        });
+        const tmpHtml = path.join(app.getPath('temp'), `visapaw-print-${Date.now()}.html`);
+        try {
+          fs.writeFileSync(tmpHtml, buildPrintHtml(result), 'utf8');
+          await printWin.loadFile(tmpHtml);
+          const pdf = await printWin.webContents.printToPDF({
+            pageSize: 'A4',
+            printBackground: true,
+          });
+          fs.writeFileSync(filePath, pdf);
+        } finally {
+          printWin.destroy();
+          fs.rmSync(tmpHtml, { force: true });
+        }
+        return { ok: true, path: filePath };
+      }
+      return { ok: false, message: `未知导出类型：${String(kind)}` };
+    } catch (err) {
+      return { ok: false, message: (err as Error).message };
+    } finally {
+      activeExport = false;
+    }
+  });
   ipcMain.handle('system:status', () => ({
     dark: nativeTheme.shouldUseDarkColors,
     version: app.getVersion(),
