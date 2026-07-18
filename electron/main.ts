@@ -61,9 +61,10 @@ function createWindow(): void {
     void win.loadURL(DEV_URL);
   }
 
-  // 外链（官网原文 ↗）交给系统浏览器打开，窗口内不导航（#11）
+  // 外链（官网原文 ↗ 及清单内官方链接，如 legislation.gov.au）交系统浏览器；
+  // 链接均源于官网页面内容，HTTPS 即放行，窗口内一律不导航（Codex PR#27 P2）
   win.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('https://immi.homeaffairs.gov.au/')) {
+    if (url.startsWith('https://')) {
       void shell.openExternal(url);
     }
     return { action: 'deny' };
