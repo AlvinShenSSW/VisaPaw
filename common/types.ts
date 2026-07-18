@@ -78,6 +78,70 @@ export interface TermItem {
 
 export type TermKind = 'countries' | 'cricos';
 
+/* ------------------------------ 生成管线（#10/#11/#16） ------------------------------ */
+
+export type ChecklistTypeName = 'Regular' | 'Streamlined' | 'Undetermined';
+
+export interface GenerateParams {
+  country: TermItem;
+  school: TermItem | 'undecided';
+  studentTypeCode: string;
+}
+
+/** Step 2 轻量两阶段进度事件（细粒度过程写日志，不在 UI 展开——SPEC §4 修订） */
+export type ProgressEvent =
+  | { type: 'phase'; phase: 'search' | 'translate'; status: 'active' | 'done'; detail?: string; durationMs?: number }
+  | { type: 'summary'; checklistType: ChecklistTypeName; sections: number; items: number }
+  | { type: 'provider'; provider: ProviderId; model: string }
+  | {
+      type: 'fallback-note';
+      from: ProviderId;
+      fromModel: string;
+      to?: ProviderId;
+      errorKind: string;
+    }
+  | { type: 'translate-progress'; done: number; total: number };
+
+export interface ResultNote {
+  ruleId: string;
+  note: string;
+  level: 'normal' | 'warning';
+}
+
+export interface ResultItem {
+  /** 官网英文原文 */
+  en: string;
+  /** 中文译文；全部 provider 失败时缺省（#13 状态 D） */
+  zh?: string;
+  links: Array<{ text: string; href: string }>;
+  notes: ResultNote[];
+}
+
+export interface ResultSection {
+  name: string;
+  anchorId: string | null;
+  autoClassified: boolean;
+  pendingManual: boolean;
+  items: ResultItem[];
+}
+
+export interface ResultGroup {
+  category: string;
+  sections: ResultSection[];
+}
+
+export interface GenerateResult {
+  checklistType: ChecklistTypeName;
+  /** UTC ISO 抓取时间（红线三要素之一） */
+  fetchedAt: string;
+  params: GenerateParams;
+  groups: ResultGroup[];
+  /** 实际使用的 provider/模型；翻译整体失败时为 null */
+  aiMeta: { provider: ProviderId; model: string } | null;
+  /** true = 保留英文清单（全部 provider 失败，#13 状态 D） */
+  translationFailed: boolean;
+}
+
 export interface VisapawBridge {
   getSettings(): Promise<Settings>;
   setSettings(patch: Partial<Settings>): Promise<Settings>;
@@ -87,6 +151,11 @@ export interface VisapawBridge {
   getSystemStatus(): Promise<{ dark: boolean; version: string }>;
   /** Termstore 下拉数据（main 侧 7 天缓存；smoke 模式返回空） */
   getTerms(kind: TermKind): Promise<TermItem[]>;
+  /** 启动生成（进度经 onGenerateProgress 流式推送；resolve 为最终结果或抛错） */
+  startGenerate(params: GenerateParams): Promise<GenerateResult>;
+  cancelGenerate(): Promise<void>;
+  /** 订阅进度事件；返回退订函数 */
+  onGenerateProgress(cb: (e: ProgressEvent) => void): () => void;
   listRunLogs(): Promise<RunSummary[]>;
   getRunLog(id: string): Promise<RunLog | null>;
   /** 导出为文本（#12「导出日志」——渲染层负责落盘对话框） */
