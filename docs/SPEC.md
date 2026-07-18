@@ -1,8 +1,8 @@
 # VisaPaw 需求文档（Spec）
 
-- 版本：v0.1（Iteration 1 规划稿）
+- 版本：v0.2（Iteration 1 规划稿）
 - 日期：2026-07-19
-- 状态：待确认三个开放问题（见 §12），其余可进入开发
+- 状态：三个开放问题已确认（见 §12 决议记录），可进入开发
 
 ---
 
@@ -26,13 +26,13 @@
 
 - 签证类别：**仅学生签 Subclass 500**（官网该工具本身只覆盖学生签）。
 - 输入：申请人姓名、护照国籍、意向院校（或 CRICOS 码，可选「未定」）、学生类型（默认普通学生）。
-- 输出：分类 + 翻译 + 备注 + 标题的清单文档；Markdown 导出与剪贴板复制。
-- API key：用户自备 Anthropic key，存 Keychain。
+- 输出：分类 + 翻译 + 备注 + 标题的清单文档（中英双语对照）；**Markdown 导出、PDF 导出、剪贴板复制**。
+- AI Provider：设置页可添加多家 API key（Claude / ChatGPT / MiMo），多选启用并**按用户排序做 fallback**；key 全部存 Keychain。详见 §8。
 
 ### 明确不做（后续迭代）
 
 - 其他签证类别（485/482/600 等，官网为各 visa listing 的静态页，解析器不同）→ Iteration 3
-- PDF 导出、多申请人档案管理、清单勾选进度 → Iteration 2
+- 多申请人档案管理、清单勾选进度 → Iteration 2
 - 官网清单变更监测与 diff 提醒 → Iteration 3
 - 云端服务/账号体系：**永久不做云端抓取代理**（见 §9 约束）
 
@@ -61,15 +61,15 @@ Regular 版清单章节（官网原始结构）：Identity / Evidence of intende
 1. 打开 App → 表单：姓名、国籍（可搜索下拉）、学校（可搜索下拉 / CRICOS 码 / 「未定」）、学生类型（默认 01）。
 2. 点击「生成清单」→ App 实时请求官网（判定接口 + 页面抓取）。
 3. 解析对应清单 div → 结构化条目（章节 / 条目文本 / 官网链接）。
-4. 确定性分类映射 → 规则引擎注入备注 → Claude 翻译（流式展示进度）。
-5. 展示双语清单，顶部为标题与元信息（清单类型、抓取时间、免责声明）。
-6. 导出 Markdown / 复制到剪贴板。
+4. 确定性分类映射 → 规则引擎注入备注 → AI 翻译（按 provider 顺序调用，流式展示进度）。
+5. 展示中英双语清单，顶部为标题与元信息（清单类型、抓取时间、免责声明）。
+6. 导出 Markdown / 导出 PDF / 复制到剪贴板。
 
 异常流程：
 
 - 官网 403 / 网络失败 → 明确报错并允许重试。
 - 结构指纹校验失败（官网改版）→ 降级为内嵌 WebView 打开官网 + 提示等待 App 更新。
-- Claude API 失败 → 保留英文清单结果，提示翻译暂不可用，可重试翻译环节。
+- AI provider 失败（认证失败 / 限流 / 套餐额度耗尽 / 服务端错误）→ 自动按顺序 fallback 到下一个已启用 provider，UI 标注实际使用的 provider；全部失败则保留英文清单结果，提示翻译暂不可用，可重试翻译环节。
 
 ## 5. 分类方案
 
@@ -127,23 +127,34 @@ Regular 版清单章节（官网原始结构）：Identity / Evidence of intende
   - `parser`：cheerio 解析清单 div → `{section, items[], links[]}`；
   - `classifier`：映射表 + AI 兜底；
   - `annotator`：规则引擎；
-  - `translator`：Claude API 管道；
-  - `exporter`：Markdown / 剪贴板。
-- **Renderer**：输入表单（国家/院校本地模糊搜索）、生成进度（流式）、双语清单视图、导出。
-- **AI 管道**：
-  - SDK `@anthropic-ai/sdk`（main process 调用，流式）；
-  - 默认模型 `claude-opus-4-8`（$5/$25 每 MTok），设置可切 `claude-sonnet-5`（$3/$15，2026-08-31 前 $2/$10）；单次生成成本量级 Opus ≈ $0.3、Sonnet ≈ $0.1；
-  - 翻译用结构化输出（zod schema，条目数组进 → 等长译文数组出）；
-  - 术语表进 system prompt + prompt caching。
+  - `translator`：AI Provider 层（见下），带顺序 fallback；
+  - `exporter`：Markdown / PDF（Electron `webContents.printToPDF` 渲染专用打印模板，无额外依赖）/ 剪贴板。
+- **Renderer**：输入表单（国家/院校本地模糊搜索）、生成进度（流式）、中英双语清单视图、导出（MD/PDF/复制）、设置页（Provider 管理）。
+
+### AI Provider 层（多家可选，按序 fallback）
+
+设置页可添加多家 API key，勾选启用并拖拽排序；翻译/兜底归类按顺序尝试，前一家失败自动切下一家：
+
+| Provider | 接入方式 | 默认模型 | 计费备注 |
+|---|---|---|---|
+| Claude（Anthropic） | 官方 SDK `@anthropic-ai/sdk` | `claude-opus-4-8`（$5/$25 每 MTok），可切 `claude-sonnet-5`（$3/$15，2026-08-31 前 $2/$10） | 按量计费；单次生成量级 Opus ≈ $0.3、Sonnet ≈ $0.1 |
+| ChatGPT（OpenAI） | 官方 SDK `openai` | 设置中可选（默认取当期旗舰） | 按量计费 |
+| MiMo（小米） | OpenAI/Anthropic 双协议兼容 API → 复用 `openai` SDK + baseURL 覆写 | `mimo-v2.5-pro` / `mimo-v2.5`（1M 上下文 / 128K 输出） | ⚠️ **Token Plan 套餐制**：额度耗尽返回配额错误，必须视为可 fallback 错误自动切换下一家，并在 UI 提示「MiMo 套餐额度已用尽」 |
+
+Fallback 触发条件（对所有 provider 统一）：认证失败（401/403）、限流（429）、**套餐/配额耗尽**、服务端错误（5xx）、结构化输出解析失败重试一次后仍失败。不可 fallback：网络完全不可用（直接报错）。每次生成在结果元信息中记录实际使用的 provider 与模型。
+
+- 三家统一走**结构化 JSON 输出**（Claude 用 `output_config.format`；OpenAI/MiMo 用 `response_format: json_schema`），条目数组进 → 等长译文数组出，防漏译错位；
+- 术语表进 system prompt（Claude 侧加 prompt caching）；三家共用同一份术语表与 prompt 模板，保证切换 provider 后术语一致；
+- 所有 key 存 macOS Keychain，按 provider 命名空间隔离。
 
 ## 9. 非功能性需求与硬约束
 
 1. **本机直连**：官网抓取只在用户 Mac 上进行，禁止云端代理（官网封数据中心 IP；也符合隐私原则）。
-2. **隐私**：姓名/护照等个人信息永不发送给 Claude API，只在本地拼接。
+2. **隐私**：姓名/护照等个人信息永不发送给任何 AI provider（Claude/OpenAI/MiMo 一视同仁），只在本地拼接。
 3. **时效性**：每次生成实时抓取；文档标注抓取时间。
 4. **可降级**：结构指纹校验失败 → 内嵌 WebView 手动模式。
 5. **合规**：固定免责声明；低频请求不做批量并发。
-6. **凭据安全**：API key 存 macOS Keychain，不落盘明文。
+6. **凭据安全**：所有 provider 的 API key 均存 macOS Keychain，不落盘明文。
 
 ## 10. 风险登记
 
@@ -159,12 +170,12 @@ Regular 版清单章节（官网原始结构）：Identity / Evidence of intende
 
 | 迭代 | 内容 |
 |---|---|
-| **1**（本文档） | 500 签证完整链路：输入 → 抓取 → 分类 → 翻译 → 备注 → 标题 → Markdown 导出/复制 |
-| 2 | PDF 导出、多申请人档案、清单勾选进度追踪 |
+| **1**（本文档） | 500 签证完整链路：输入 → 抓取 → 分类 → 翻译 → 备注 → 标题 → 导出（Markdown + PDF + 剪贴板）；多 Provider 设置与顺序 fallback |
+| 2 | 多申请人档案、清单勾选进度追踪 |
 | 3 | 其他签证类别（visa listing 静态页解析）、官网清单变更 diff 提醒 |
 
-## 12. 开放问题（有默认方案，不阻塞）
+## 12. 决议记录（原开放问题，2026-07-19 已确认）
 
-1. **导出格式**：Iteration 1 仅 Markdown + 剪贴板，PDF 放二期？（默认：是）
-2. **API key 模式**：用户自备 key（默认），还是为零配置用户引入代理层（架构变更，需拍板）？
-3. **展示形态**：中英双语对照（默认，中文为主英文可展开），还是纯中文？
+1. **导出格式**：Markdown + **PDF** + 剪贴板，全部纳入 Iteration 1。✅
+2. **API key 模式**：设置页自行添加，支持多家 provider（Claude / ChatGPT / MiMo）多选启用、按用户排序做 fallback。注意 MiMo 为 Token Plan 套餐计费，额度耗尽须自动 fallback。✅
+3. **展示形态**：中英双语对照。✅
