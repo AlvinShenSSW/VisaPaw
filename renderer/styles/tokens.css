@@ -61,4 +61,8 @@
   --fs-small: 12px;
   /* accent 背景上的前景色（mockup 中的 #fff 语义化） */
   --on-accent: #FFFFFF;
+  /* provider 品牌色（mockups/04 p-logo；两种模式同值） */
+  --brand-claude: #C96442;
+  --brand-openai: #10A37F;
+  --brand-mimo: #FF6900;
 }
