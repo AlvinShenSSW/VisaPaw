@@ -9,6 +9,7 @@ import { providerChainLabel } from './lib/status.ts';
 import { Step1, type Step1Selection } from './views/Step1.tsx';
 import { Step2, reduceProgress, type Step2State } from './views/Step2.tsx';
 import { Step3 } from './views/Step3.tsx';
+import { SettingsView } from './views/Settings.tsx';
 
 type Route = { step: 1 } | { step: 2; selection: Step1Selection } | { step: 3; result: GenerateResult };
 
@@ -18,6 +19,8 @@ export function App(): React.JSX.Element {
   const [route, setRoute] = useState<Route>({ step: 1 });
   const [progress, setProgress] = useState<Step2State>({ phase: 'search' });
   const [enAllOpen, setEnAllOpen] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [settingsTab, setSettingsTab] = useState<'provider' | 'logs'>('provider');
   const unsubRef = useRef<(() => void) | null>(null);
   const mountedRef = useRef(true);
 
@@ -73,9 +76,11 @@ export function App(): React.JSX.Element {
     <div className="shell">
       <header className="titlebar">
         <span className="title">
-          🐾 VisaPaw{route.step === 2 ? ' — 生成清单' : route.step === 3 ? ' — 生成结果' : ''}
+          {showSettings
+            ? 'VisaPaw 设置'
+            : `🐾 VisaPaw${route.step === 2 ? ' — 生成清单' : route.step === 3 ? ' — 生成结果' : ''}`}
         </span>
-        {route.step === 3 && (
+        {!showSettings && route.step === 3 && (
           <span className="tools">
             <button className="tb-btn" onClick={() => setEnAllOpen((v) => !v)}>
               {enAllOpen ? '收起全部英文' : '展开全部英文'}
@@ -91,22 +96,46 @@ export function App(): React.JSX.Element {
             </button>
           </span>
         )}
-        <span className="gear" title="设置">
+        {showSettings && (
+          <span className="tools">
+            <button className="tb-btn" onClick={() => setShowSettings(false)}>
+              完成
+            </button>
+          </span>
+        )}
+        <span
+          className="gear"
+          title="设置"
+          onClick={() => setShowSettings((v) => !v)}
+          style={{ cursor: 'pointer' }}
+        >
           ⚙︎
         </span>
       </header>
-      {route.step === 1 && <Step1 settings={settings} onGenerate={startGenerate} />}
-      {route.step === 2 && (
+      {showSettings && settings && (
+        <SettingsView
+          key={settingsTab}
+          settings={settings}
+          onSettingsChange={setSettings}
+          initialTab={settingsTab}
+        />
+      )}
+      {!showSettings && route.step === 1 && <Step1 settings={settings} onGenerate={startGenerate} />}
+      {!showSettings && route.step === 2 && (
         <Step2
           selection={route.selection}
           state={progress}
           onCancel={cancelGenerate}
-          onOpenLogs={() => undefined /* 设置页由 #12 落地 */}
+          onOpenLogs={() => {
+            // 生成期间可直达 设置 → 日志（Codex PR#28 P2）
+            setSettingsTab('logs');
+            setShowSettings(true);
+          }}
           onBack={() => setRoute({ step: 1 })}
           onRetry={() => startGenerate(route.selection)}
         />
       )}
-      {route.step === 3 && (
+      {!showSettings && route.step === 3 && (
         <Step3
           result={route.result}
           allOpen={enAllOpen}
