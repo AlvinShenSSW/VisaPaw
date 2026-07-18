@@ -54,7 +54,7 @@ describe('createCredentialStore（按 provider 命名空间）', () => {
     const store = createCredentialStore(f, fakeCrypto);
     // @ts-expect-error 故意传入非法 id 验证运行时防御
     expect(() => store.setKey('bogus', 'k')).toThrow(/未知 provider/);
-    // @ts-expect-error 同上
+    // @ts-expect-error 同上——非法 id 的运行时防御
     expect(() => store.getKey('bogus')).toThrow(/未知 provider/);
   });
 
