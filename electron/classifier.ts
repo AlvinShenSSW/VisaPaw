@@ -103,6 +103,7 @@ export async function classifySections(
     // 未命中：映射表需更新告警（#15 日志，兼官网改版探测器）
     emit({ type: 'mapping-outdated', section: name });
 
+    let pendingReason = '无可用 AI provider';
     if (deps.classifyWithAi) {
       try {
         const { category, meta } = await deps.classifyWithAi(name, [...CATEGORIES]);
@@ -119,21 +120,15 @@ export async function classifySections(
           });
           continue;
         }
+        pendingReason = `AI 返回了候选之外的分类：${category}`;
       } catch (e) {
         // F6：分类兜底的任何 AI 失败（含断网/全部 provider 失败）都降级——
         // 分类有确定性出路（待人工归类），与翻译的 network 直抛语义不同
-        emit({ type: 'manual-pending', section: name, reason: (e as Error).message });
-        results.push({
-          name,
-          category: PENDING_MANUAL_CATEGORY,
-          autoClassified: false,
-          pendingManual: true,
-        });
-        continue;
+        pendingReason = (e as Error).message;
       }
     }
 
-    emit({ type: 'manual-pending', section: name, reason: '无可用 AI provider' });
+    emit({ type: 'manual-pending', section: name, reason: pendingReason });
     results.push({
       name,
       category: PENDING_MANUAL_CATEGORY,
