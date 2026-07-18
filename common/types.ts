@@ -155,6 +155,11 @@ export type GenerateOutcome =
       message: string;
     };
 
+/** 导出结果联合——用户取消是结构化标志而非文案匹配（Kimi PR#30 P2） */
+export type ExportOutcome =
+  | { ok: true; path?: string }
+  | { ok: false; cancelled?: true; message: string };
+
 export interface VisapawBridge {
   getSettings(): Promise<Settings>;
   setSettings(patch: Partial<Settings>): Promise<Settings>;
@@ -169,6 +174,8 @@ export interface VisapawBridge {
   cancelGenerate(): Promise<void>;
   /** 状态 D：仅重试翻译，不重新抓取（#13） */
   retryTranslation(result: GenerateResult): Promise<GenerateOutcome>;
+  /** 导出（#14）：markdown/pdf 弹保存框写文件；copy 写剪贴板（纯文本+富文本双格式） */
+  exportResult(kind: 'markdown' | 'pdf' | 'copy', result: GenerateResult): Promise<ExportOutcome>;
   /** 订阅进度事件；返回退订函数 */
   onGenerateProgress(cb: (e: ProgressEvent) => void): () => void;
   listRunLogs(): Promise<RunSummary[]>;

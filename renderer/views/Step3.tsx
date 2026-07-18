@@ -26,6 +26,8 @@ export interface Step3Props {
   retryingTranslation?: boolean;
   /** 上次重试失败的原因——不得静默（Codex PR#29 P2） */
   retryError?: string | null;
+  /** 导出失败提示——不得只进控制台（Codex PR#30 P2） */
+  exportError?: string | null;
 }
 
 function Highlight({ text }: { text: string }): React.JSX.Element {
@@ -188,6 +190,12 @@ export function Step3(props: Step3Props): React.JSX.Element {
         ))}
       </div>
 
+      {props.exportError && (
+        <div className="trans-banner" style={{ margin: '10px 24px 0' }}>
+          <span>⚠️</span>
+          <span className="grow">导出失败：{props.exportError}</span>
+        </div>
+      )}
       <div className="dock">
         <div className="disclaimer">
           <b>免责声明：</b>

@@ -17,6 +17,7 @@ const bridge: VisapawBridge = {
   startGenerate: (params) => ipcRenderer.invoke('generate:start', params),
   cancelGenerate: () => ipcRenderer.invoke('generate:cancel'),
   retryTranslation: (result) => ipcRenderer.invoke('generate:retry-translation', result),
+  exportResult: (kind, result) => ipcRenderer.invoke('export:result', kind, result),
   onGenerateProgress: (cb) => {
     const listener = (_e: IpcRendererEvent, ev: ProgressEvent): void => cb(ev);
     ipcRenderer.on('generate:progress', listener);

@@ -26,6 +26,7 @@ export function App(): React.JSX.Element {
   const [enAllOpen, setEnAllOpen] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [settingsTab, setSettingsTab] = useState<'provider' | 'logs'>('provider');
   const unsubRef = useRef<(() => void) | null>(null);
@@ -50,6 +51,9 @@ export function App(): React.JSX.Element {
   const startGenerate = (selection: Step1Selection): void => {
     if (!window.visapaw) return;
     setProgress({ phase: 'search' });
+    // 上一轮的瞬态错误不得带入新一次生成（Kimi PR#30 P2）
+    setExportError(null);
+    setRetryError(null);
     setRoute({ step: 2, selection });
     unsubRef.current?.();
     unsubRef.current = window.visapaw.onGenerateProgress((e) =>
@@ -163,9 +167,20 @@ export function App(): React.JSX.Element {
         <Step3
           result={route.result}
           allOpen={enAllOpen}
+          exportError={exportError}
           onExport={(kind) => {
-            // 三种导出由 #14 落地
-            console.warn(`导出（${kind}）由 #14 实现`);
+            setExportError(null);
+            window.visapaw
+              ?.exportResult(kind, route.result)
+              .then((r) => {
+                if (!mountedRef.current) return;
+                // 失败必须用户可见（Codex PR#30 P2）；用户取消是结构化标志
+                // 而非文案匹配（Kimi PR#30 P2），不算失败
+                if (!r.ok && !r.cancelled) setExportError(r.message);
+              })
+              .catch((e: Error) => {
+                if (mountedRef.current) setExportError(e.message);
+              });
           }}
           retryingTranslation={retrying}
           retryError={retryError}
