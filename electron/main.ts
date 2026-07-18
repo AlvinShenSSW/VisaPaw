@@ -7,9 +7,8 @@
 import { app, BrowserWindow, ipcMain, nativeTheme, safeStorage } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
-import { createSettingsStore, type SettingsStore } from './settings-store.ts';
+import { createSettingsStore, PROVIDER_IDS, type SettingsStore, type ProviderId } from './settings-store.ts';
 import { createCredentialStore, type CredentialStore, type SafeCrypto } from './credential-store.ts';
-import type { ProviderId } from './settings-store.ts';
 
 const DEV_URL = process.env.VITE_DEV_SERVER_URL || 'http://localhost:5274';
 
@@ -58,25 +57,52 @@ function createWindow(): void {
       console.log('[visapaw] smoke: window loaded, exiting 0');
       app.quit();
     });
-    // dev server 不在时 loadURL 会失败——冒烟只验证窗口/主进程生命周期
-    win.webContents.once('did-fail-load', () => {
-      console.log('[visapaw] smoke: renderer URL unavailable (window lifecycle ok), exiting 0');
-      app.quit();
+    // renderer 加载失败必须响亮失败（Kimi 终审 minor）
+    win.webContents.once('did-fail-load', (_e, code, desc) => {
+      console.error(`[visapaw] smoke: renderer 加载失败（${code} ${desc}），exit 1`);
+      app.exit(1);
     });
+  }
+}
+
+// vault 写操作串行化——不依赖底层 IO 恰好同步（Kimi 终审 P2）
+let vaultLock: Promise<unknown> = Promise.resolve();
+function withVaultLock<T>(fn: () => T | Promise<T>): Promise<T> {
+  const run = vaultLock.then(fn, fn);
+  vaultLock = run.catch(() => undefined);
+  return run;
+}
+
+// IPC 边界校验：renderer 参数先验证再进 store（Kimi 终审 P2）
+function assertProvider(v: unknown): asserts v is ProviderId {
+  if (!(PROVIDER_IDS as readonly string[]).includes(v as string)) {
+    throw new Error(`无效的 provider 参数：${String(v)}`);
   }
 }
 
 function registerIpc(): void {
   ipcMain.handle('settings:get', () => settings.get());
-  ipcMain.handle('settings:set', (_e, patch: unknown) => settings.set(patch));
-  // key 单向写入；renderer 永远拿不到 key 明文（#12 决议）
-  ipcMain.handle('credentials:set', (_e, provider: ProviderId, key: string) => {
-    credentials.setKey(provider, key);
-    return credentials.getStatus();
+  ipcMain.handle('settings:set', (_e, patch: unknown) => {
+    if (!patch || typeof patch !== 'object' || Array.isArray(patch)) {
+      throw new Error('settings patch 必须是对象');
+    }
+    return settings.set(patch);
   });
-  ipcMain.handle('credentials:delete', (_e, provider: ProviderId) => {
-    credentials.deleteKey(provider);
-    return credentials.getStatus();
+  // key 单向写入；renderer 永远拿不到 key 明文（#12 决议）
+  ipcMain.handle('credentials:set', (_e, provider: unknown, key: unknown) => {
+    assertProvider(provider);
+    if (typeof key !== 'string' || key.trim() === '') throw new Error('API key 不能为空');
+    return withVaultLock(() => {
+      credentials.setKey(provider, key);
+      return credentials.getStatus();
+    });
+  });
+  ipcMain.handle('credentials:delete', (_e, provider: unknown) => {
+    assertProvider(provider);
+    return withVaultLock(() => {
+      credentials.deleteKey(provider);
+      return credentials.getStatus();
+    });
   });
   ipcMain.handle('credentials:status', () => credentials.getStatus());
   ipcMain.handle('system:status', () => ({
