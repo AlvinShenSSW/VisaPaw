@@ -62,7 +62,19 @@ export function classifyProviderError(e: unknown, provider: ProviderId): AiError
     /quota|insufficient[_ ]?credit|balance|额度|套餐/i.test(msg);
 
   if (status === undefined) {
-    return new AiError('network', `网络不可达：${msg}`, provider);
+    // 无 status ≠ 一定断网：SDK 内部解析畸形响应抛的 SyntaxError/TypeError 应走 parse
+    // 重试/fallback，而非终止整条链（Codex 外门 P2）。仅连接层信号才判 network。
+    const name = (e as Error)?.name ?? '';
+    const connectionSignal =
+      name === 'APIConnectionError' ||
+      name === 'AbortError' ||
+      /fetch failed|network|socket|ECONNREFUSED|ECONNRESET|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|timed? ?out/i.test(
+        `${msg} ${String(code ?? '')}`
+      );
+    if (connectionSignal) {
+      return new AiError('network', `网络不可达：${msg}`, provider);
+    }
+    return new AiError('parse', `响应处理失败（${name || '未知异常'}）：${msg}`, provider);
   }
   if (status === 402 || quotaSignal) {
     return new AiError('quota', `套餐/配额耗尽：${msg}`, provider);

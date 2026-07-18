@@ -108,10 +108,17 @@ describe('classifyProviderError（三家共用错误映射）', () => {
     [{ status: 529, message: 'overloaded' }, 'server'],
     [{ status: 400, message: 'bad request' }, 'server'],
     [{ message: 'fetch failed' }, 'network'],
+    [{ message: 'connect ECONNREFUSED 127.0.0.1:443' }, 'network'],
+    [{ name: 'AbortError', message: 'The operation timed out' }, 'network'],
+    // 无 status 但非连接层（SDK 解析畸形响应）→ parse，可重试/fallback（Codex 外门 P2）
+    [{ name: 'SyntaxError', message: 'Unexpected token < in JSON' }, 'parse'],
+    [{ name: 'TypeError', message: "Cannot read properties of undefined (reading 'choices')" }, 'parse'],
   ];
   for (const [input, expected] of cases) {
     it(`${JSON.stringify(input)} → ${expected}`, () => {
-      expect(classifyProviderError(Object.assign(new Error(String(input.message)), input), 'claude').kind).toBe(expected);
+      const err = Object.assign(new Error(String(input.message)), input);
+      if (typeof input.name === 'string') err.name = input.name;
+      expect(classifyProviderError(err, 'claude').kind).toBe(expected);
     });
   }
 });

@@ -36,6 +36,23 @@ export function buildSystemPrompt(): string {
   ].join('\n');
 }
 
+/** 分类兜底专用 system 模板（Codex 外门 P2：不得复用翻译模板——指令自相矛盾） */
+export function buildClassifySystemPrompt(): string {
+  const glossaryLines = GLOSSARY.map(([en, zh]) => `- ${en} → ${zh}`).join('\n');
+  return [
+    '你是澳大利亚学生签证材料清单的章节归类引擎。',
+    '任务：为官网清单中未命中确定性映射表的章节名，从给定候选分类中选出最合适的一个。',
+    '',
+    '规则：',
+    '1. 只依据章节名语义选择，不臆测章节内容；',
+    '2. category 字段必须逐字等于候选分类之一，不得创造新分类；',
+    '3. 输出严格遵循给定 JSON schema。',
+    '',
+    '背景术语表（帮助理解章节名，不用于输出）：',
+    glossaryLines,
+  ].join('\n');
+}
+
 export const translateSchema = z.object({
   translations: z.array(z.string()),
 });

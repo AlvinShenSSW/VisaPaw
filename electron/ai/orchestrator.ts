@@ -25,6 +25,7 @@ import {
   type StructuredCall,
 } from './adapters.ts';
 import {
+  buildClassifySystemPrompt,
   buildSystemPrompt,
   classifySchema,
   classifyUserPrompt,
@@ -187,7 +188,7 @@ export function createAiService(deps: AiServiceDeps): AiService {
     async classifySection(sectionName, categories) {
       const { value, meta } = await runStructured(
         {
-          system: buildSystemPrompt(),
+          system: buildClassifySystemPrompt(),
           user: classifyUserPrompt(sectionName, categories),
           schema: classifySchema,
           schemaName: 'classify_result',
