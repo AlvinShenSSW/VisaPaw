@@ -2,6 +2,7 @@
 
 > 本文档为 GitHub Epic 与全部子 issue 的正文，供批量创建使用。
 > 依据：`docs/SPEC.md` v0.2、`AGENTS.md`、`mockups/`（高保真 UI/UX 稿，2026-07-19 定稿）。
+> **编号说明**（创建后追记）：文中「Issue N」为文档序号；实际创建后 Epic = GitHub #1，文档 Issue N = GitHub **#N+1**（对照表见 GitHub Epic #1 评论）。SPEC v0.3 起的修订以 GitHub 编号引用。
 > **设计红线：所有 UI 相关工作严格按照 `mockups/` 下的 UI/UX 稿实现——布局、配色 token、字体层级、组件状态（含浅色/深色模式）以 mockup 为唯一视觉验收基准，不得自行发挥。**
 
 ---

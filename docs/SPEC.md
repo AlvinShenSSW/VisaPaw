@@ -47,7 +47,7 @@
 | 3 | 清单内容 | `GET /visas/web-evidentiary-tool`（约 1.4MB HTML），三套清单预渲染于 `div#Regular` / `div#Streamlined` / `div#Undetermined` | ✅ Regular 版约 48KB，16 个章节 |
 
 - 无需浏览器自动化、无需 reCAPTCHA token；需浏览器 UA + `Content-Type: application/json`。
-- ⚠️ 判定接口仅实测过「未定院校」入参（`provider:"NotListed"`、`cricosCode:" "`）；**选定院校时的入参映射（推测为 provider=Termstore Key、cricosCode=Termstore Value）待 #4 落地时抓包实测确认并回填本节**，实测前不得当作事实实现。
+- ⚠️ 判定接口仅实测过「未定院校」入参（`provider:"NotListed"`、`cricosCode:" "`）；**选定院校时的入参映射（推测为 provider=Termstore Key、cricosCode=Termstore Value）待 fetcher（GitHub issue #4）落地时抓包实测确认并回填本节**，实测前不得当作事实实现；确认后 fetcher 需补选校路径的 fixture 测试。
 - **官网对数据中心 IP 返回 403**，本机住宅 IP 正常 → 抓取必须在用户 Mac 上直连。
 - 学生类型码：`01` 普通（默认）/ `02` 中学交换 / `03` PhD 论文评审续签 / `04` DFAT 资助 / `05` 国防部资助。
 
@@ -66,7 +66,7 @@ Regular 版清单章节（官网原始结构）：Identity / Evidence of intende
 异常流程：
 
 - 官网 403 / 网络失败 → 明确报错并允许重试。
-- 结构指纹校验失败（官网改版）→ 降级为内嵌 WebView 打开官网 + 提示等待 App 更新。WebView 仅加载官网基础 URL；官网页面无公开的预填查询参数，表单预填为 best-effort，默认由用户在官网表单中手动补全（含学生类型等已选项，UI 需展示用户此前的全部选择供其照抄）。
+- 结构指纹校验失败（官网改版）→ 降级为内嵌 WebView 打开官网 + 提示等待 App 更新。WebView 仅加载官网基础 URL；官网页面无公开的预填查询参数，表单预填为 best-effort，默认由用户在官网表单中手动补全（含学生类型等已选项，UI 需展示用户此前的全部选择供其照抄）。WebView 安全约束：启用沙箱、导航限制在 `immi.homeaffairs.gov.au` 域内、不注入脚本、无读取表单内容的 preload（App 不采集个人信息的红线在降级模式同样成立）。
 - AI provider 失败（认证失败 / 限流 / 套餐额度耗尽 / 服务端错误）→ 自动按顺序 fallback 到下一个已启用 provider，UI 标注实际使用的 provider；全部失败则保留英文清单结果，提示翻译暂不可用，可重试翻译环节。
 
 ## 5. 分类方案
@@ -85,7 +85,8 @@ Regular 版清单章节（官网原始结构）：Identity / Evidence of intende
 
 - 映射表未命中的新章节：由 Claude 兜底归类，文档中标注「自动归类」，并触发「映射表需更新」告警（兼作官网改版探测器）。
 - 映射表以配置文件（JSON/TS 常量）维护，不硬编码在解析逻辑里。
-- 上表章节名为简写；**映射键必须与 parser 从官网快照实际抽取的章节名逐字对齐**（如 `Welfare arrangements for under 18`、`Evidence of school enrolment for dependants`），归一化规则（trim/大小写/空白折叠）在 #6 中定义并对 §3 全部章节做覆盖测试；`Special categories` 随父章节归入教育与工作背景类，不走 AI 兜底。
+- 上表章节名为简写；**映射键必须与 parser 从官网快照实际抽取的章节名逐字对齐**（如 `Welfare arrangements for under 18`、`Evidence of school enrolment for dependants`），归一化规则（trim/大小写/空白折叠）在 classifier（GitHub issue #6）中定义并对 §3 全部章节做覆盖测试；`Special categories` 随父章节归入教育与工作背景类，不走 AI 兜底。
+- ⚠️ `mockups/03-result.html` 第 5 条将 Special categories 画为「✦ 自动归类」，**仅为该标注样式的视觉示例**（已在 GitHub #6 评论决议）；实现以本节确定性映射为准，「自动归类」只用于真正未知的新章节。
 
 ## 6. 备注规则引擎（确定性，不走 LLM）
 
