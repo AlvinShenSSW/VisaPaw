@@ -8,6 +8,7 @@ import type { GenerateResult, Settings } from '../common/types.ts';
 import { providerChainLabel } from './lib/status.ts';
 import { Step1, type Step1Selection } from './views/Step1.tsx';
 import { Step2, reduceProgress, type Step2State } from './views/Step2.tsx';
+import { Step3 } from './views/Step3.tsx';
 
 type Route = { step: 1 } | { step: 2; selection: Step1Selection } | { step: 3; result: GenerateResult };
 
@@ -16,6 +17,7 @@ export function App(): React.JSX.Element {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [route, setRoute] = useState<Route>({ step: 1 });
   const [progress, setProgress] = useState<Step2State>({ phase: 'search' });
+  const [enAllOpen, setEnAllOpen] = useState(false);
   const unsubRef = useRef<(() => void) | null>(null);
   const mountedRef = useRef(true);
 
@@ -70,7 +72,25 @@ export function App(): React.JSX.Element {
   return (
     <div className="shell">
       <header className="titlebar">
-        <span className="title">🐾 VisaPaw{route.step === 2 ? ' — 生成清单' : ''}</span>
+        <span className="title">
+          🐾 VisaPaw{route.step === 2 ? ' — 生成清单' : route.step === 3 ? ' — 生成结果' : ''}
+        </span>
+        {route.step === 3 && (
+          <span className="tools">
+            <button className="tb-btn" onClick={() => setEnAllOpen((v) => !v)}>
+              {enAllOpen ? '收起全部英文' : '展开全部英文'}
+            </button>
+            <button
+              className="tb-btn"
+              onClick={() => {
+                setEnAllOpen(false);
+                setRoute({ step: 1 });
+              }}
+            >
+              重新生成
+            </button>
+          </span>
+        )}
         <span className="gear" title="设置">
           ⚙︎
         </span>
@@ -87,18 +107,14 @@ export function App(): React.JSX.Element {
         />
       )}
       {route.step === 3 && (
-        <div className="content">
-          {/* Step 3 结果视图由 #11 按 mockups/03 落地；当前展示占位摘要 */}
-          <div className="hero">
-            <h1>
-              <span className="paw">清单已生成</span>（{route.result.checklistType}）
-            </h1>
-            <p>
-              {route.result.groups.length} 个分类 · 抓取时间 {route.result.fetchedAt} ·{' '}
-              {route.result.translationFailed ? '翻译暂不可用（保留英文清单）' : '中英双语对照'}
-            </p>
-          </div>
-        </div>
+        <Step3
+          result={route.result}
+          allOpen={enAllOpen}
+          onExport={(kind) => {
+            // 三种导出由 #14 落地
+            console.warn(`导出（${kind}）由 #14 实现`);
+          }}
+        />
       )}
       <footer className="statusbar">
         <span>

@@ -4,7 +4,7 @@
  * VISAPAW_SMOKE=1 时窗口 ready 后自动退出（CI/本机冒烟用）。
  */
 
-import { app, BrowserWindow, ipcMain, nativeTheme, safeStorage } from 'electron';
+import { app, BrowserWindow, ipcMain, nativeTheme, safeStorage, shell } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createSettingsStore, PROVIDER_IDS, type SettingsStore, type ProviderId } from './settings-store.ts';
@@ -60,6 +60,28 @@ function createWindow(): void {
   } else {
     void win.loadURL(DEV_URL);
   }
+
+  // 外链（官网原文 ↗ 及清单内官方链接，如 legislation.gov.au）交系统浏览器；
+  // 链接均源于官网页面内容，HTTPS 即放行，窗口内一律不导航（Codex PR#27 P2）
+  const openExternally = (url: string): void => {
+    if (url.startsWith('https://')) {
+      shell.openExternal(url).catch((err: unknown) => {
+        console.error('[visapaw] openExternal 失败：', err);
+      });
+    }
+  };
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    openExternally(url);
+    return { action: 'deny' };
+  });
+  // will-navigate 兜底：普通 <a href> / location 跳转不受 windowOpenHandler 管辖（Kimi PR#27 P2）
+  win.webContents.on('will-navigate', (ev, url) => {
+    const isApp = url.startsWith(DEV_URL) || url.startsWith('file://');
+    if (!isApp) {
+      ev.preventDefault();
+      openExternally(url);
+    }
+  });
 
   if (process.env.VISAPAW_SMOKE === '1') {
     win.webContents.once('did-finish-load', () => {
