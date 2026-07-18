@@ -7,7 +7,9 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { PROVIDER_IDS, type ProviderId } from './settings-store.ts';
+import { PROVIDER_IDS, type ProviderId, type KeyStatus, type VaultStatus } from '../common/types.ts';
+
+export type { KeyStatus, VaultStatus };
 
 const assertProviderId: (v: unknown) => asserts v is ProviderId = (v) => {
   if (!(PROVIDER_IDS as readonly string[]).includes(v as string)) {
@@ -21,38 +23,37 @@ export interface SafeCrypto {
   decrypt(blob: Buffer): string;
 }
 
-export interface KeyStatus {
-  saved: boolean;
-  /** 展示用前缀（如 `sk-ant-…`），仅取 key 的非敏感头部标识，不由 key 全文派生掩码 */
-  prefix: string | null;
-}
-
 export interface CredentialStore {
   setKey(provider: ProviderId, key: string): void;
   getKey(provider: ProviderId): string | null;
   deleteKey(provider: ProviderId): void;
-  getStatus(): Record<ProviderId, KeyStatus>;
+  getStatus(): VaultStatus;
 }
 
 type Vault = Partial<Record<ProviderId, string>>;
 
-/** 取 key 的展示前缀：第一段连字符标识 + 省略号（sk-ant-… / mimo-…），不含 key 本体 */
-function displayPrefix(key: string): string {
+/** 取 key 的展示前缀：仅识别连字符厂商标识（sk-ant-… / mimo-…）；无法识别 → null，绝不截取 key 本体（Kimi 终审 P2） */
+function displayPrefix(key: string): string | null {
   const m = /^([A-Za-z0-9]+(?:-[A-Za-z]+)*)-/.exec(key);
-  return (m ? m[1] + '-' : key.slice(0, 4)) + '…';
+  return m ? m[1] + '-…' : null;
 }
 
 export function createCredentialStore(filePath: string, crypto: SafeCrypto): CredentialStore {
+  // 「文件存在但读不出」≠「没保存过」——错误态显性化供 UI 呈现（Kimi 终审 P2）
+  let lastError: string | null = null;
   function read(): Vault {
+    lastError = null;
     if (!fs.existsSync(filePath)) return {};
     if (!crypto.isAvailable()) {
-      console.warn('[visapaw] 凭据文件存在但 OS 安全存储不可用——无法解密');
+      lastError = '凭据文件存在但 OS 安全存储不可用——无法解密';
+      console.warn(`[visapaw] ${lastError}`);
       return {};
     }
     try {
       return JSON.parse(crypto.decrypt(fs.readFileSync(filePath))) as Vault;
     } catch (e) {
-      console.warn(`[visapaw] 凭据无法读取/解密：${(e as Error).message}`);
+      lastError = `凭据无法读取/解密：${(e as Error).message}`;
+      console.warn(`[visapaw] ${lastError}`);
       return {};
     }
   }
@@ -87,12 +88,12 @@ export function createCredentialStore(filePath: string, crypto: SafeCrypto): Cre
     },
     getStatus() {
       const vault = read();
-      const status = {} as Record<ProviderId, KeyStatus>;
+      const providers = {} as Record<ProviderId, KeyStatus>;
       for (const id of PROVIDER_IDS) {
         const key = vault[id];
-        status[id] = key ? { saved: true, prefix: displayPrefix(key) } : { saved: false, prefix: null };
+        providers[id] = key ? { saved: true, prefix: displayPrefix(key) } : { saved: false, prefix: null };
       }
-      return status;
+      return { providers, error: lastError };
     },
   };
 }

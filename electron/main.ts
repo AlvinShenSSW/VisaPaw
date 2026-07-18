@@ -97,15 +97,23 @@ if (!app.requestSingleInstanceLock()) {
       win.focus();
     }
   });
-  void app.whenReady().then(() => {
-    initStores();
-    registerIpc();
-    createWindow();
-    app.on('activate', () => {
-      if (BrowserWindow.getAllWindows().length === 0) createWindow();
-    });
+  // 生命周期监听在模块顶层注册，避免 ready 前的事件丢失（Kimi 终审 minor）
+  app.on('activate', () => {
+    if (app.isReady() && BrowserWindow.getAllWindows().length === 0) createWindow();
   });
   app.on('window-all-closed', () => {
     if (process.platform !== 'darwin' || process.env.VISAPAW_SMOKE === '1') app.quit();
   });
+  app
+    .whenReady()
+    .then(() => {
+      initStores();
+      registerIpc();
+      createWindow();
+    })
+    .catch((err: unknown) => {
+      // 启动失败不能留下未定义状态（Kimi 终审 P2）
+      console.error('[visapaw] 启动失败：', err);
+      app.quit();
+    });
 }

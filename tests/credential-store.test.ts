@@ -35,9 +35,34 @@ describe('createCredentialStore（按 provider 命名空间）', () => {
     const store = createCredentialStore(f, fakeCrypto);
     store.setKey('claude', 'sk-ant-abcdef123456');
     const st = store.getStatus();
-    expect(st.claude).toEqual({ saved: true, prefix: 'sk-ant-…' });
-    expect(st.openai).toEqual({ saved: false, prefix: null });
+    expect(st.providers.claude).toEqual({ saved: true, prefix: 'sk-ant-…' });
+    expect(st.providers.openai).toEqual({ saved: false, prefix: null });
+    expect(st.error).toBeNull();
     expect(JSON.stringify(st)).not.toContain('abcdef');
+  });
+
+  it('无法识别格式的 key 前缀为 null，绝不截取 key 本体（Kimi 终审 P2）', () => {
+    const f = join(dir, 'noprefix.bin');
+    const store = createCredentialStore(f, fakeCrypto);
+    store.setKey('mimo', 'ZmFrZXJhd2tleXdpdGhvdXRkYXNo');
+    const st = store.getStatus();
+    expect(st.providers.mimo.saved).toBe(true);
+    expect(st.providers.mimo.prefix).toBeNull();
+    expect(JSON.stringify(st)).not.toContain('ZmFr');
+  });
+
+  it('文件存在但解密失败 → status.error 显性化，而非误报未保存（Kimi 终审 P2）', () => {
+    const f = join(dir, 'decrypt-fail.bin');
+    createCredentialStore(f, fakeCrypto).setKey('claude', 'sk-ant-x');
+    const broken: SafeCrypto = {
+      ...fakeCrypto,
+      decrypt: () => {
+        throw new Error('keychain denied');
+      },
+    };
+    const st = createCredentialStore(f, broken).getStatus();
+    expect(st.providers.claude.saved).toBe(false);
+    expect(st.error).toMatch(/无法读取|解密/);
   });
 
   it('删除 key 后 status 归位', () => {
@@ -46,7 +71,7 @@ describe('createCredentialStore（按 provider 命名空间）', () => {
     store.setKey('openai', 'sk-openai-xyz');
     store.deleteKey('openai');
     expect(store.getKey('openai')).toBeNull();
-    expect(store.getStatus().openai.saved).toBe(false);
+    expect(store.getStatus().providers.openai.saved).toBe(false);
   });
 
   it('未知 provider id 被拒绝（IPC 面防御，CTO 自审）', () => {

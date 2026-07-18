@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 
-import type { VisapawBridge } from '../electron/preload.ts';
+import type { VisapawBridge } from '../common/types.ts';
 
 declare global {
   interface Window {

@@ -4,17 +4,7 @@
  */
 
 import { contextBridge, ipcRenderer } from 'electron';
-import type { Settings, ProviderId } from './settings-store.ts';
-import type { KeyStatus } from './credential-store.ts';
-
-export interface VisapawBridge {
-  getSettings(): Promise<Settings>;
-  setSettings(patch: Partial<Settings>): Promise<Settings>;
-  setProviderKey(provider: ProviderId, key: string): Promise<Record<ProviderId, KeyStatus>>;
-  deleteProviderKey(provider: ProviderId): Promise<Record<ProviderId, KeyStatus>>;
-  getProviderKeyStatus(): Promise<Record<ProviderId, KeyStatus>>;
-  getSystemStatus(): Promise<{ dark: boolean; version: string }>;
-}
+import type { VisapawBridge } from '../common/types.ts';
 
 const bridge: VisapawBridge = {
   getSettings: () => ipcRenderer.invoke('settings:get'),

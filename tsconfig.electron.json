@@ -12,6 +12,6 @@
     "allowImportingTsExtensions": true,
     "types": ["node"]
   },
-  "include": ["electron/**/*.ts", "tests/**/*.ts"],
+  "include": ["electron/**/*.ts", "common/**/*.ts", "tests/**/*.ts"],
   "exclude": ["node_modules"]
 }

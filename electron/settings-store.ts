@@ -6,22 +6,9 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { PROVIDER_IDS, type ProviderId, type ProviderSetting, type Settings } from '../common/types.ts';
 
-export const PROVIDER_IDS = ['claude', 'openai', 'mimo'] as const;
-export type ProviderId = (typeof PROVIDER_IDS)[number];
-
-export interface ProviderSetting {
-  id: ProviderId;
-  enabled: boolean;
-  model: string;
-}
-
-export interface Settings {
-  /** 数组顺序即 fallback 顺序（#12 拖拽排序持久化于此） */
-  providers: ProviderSetting[];
-  /** 学生类型默认值：'01'–'05'（SPEC §3） */
-  studentTypeDefault: string;
-}
+export { PROVIDER_IDS, type ProviderId, type ProviderSetting, type Settings };
 
 export type SettingsPatch = Partial<Settings>;
 
