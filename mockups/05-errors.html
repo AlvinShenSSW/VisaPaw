@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VisaPaw · 异常与降级状态（SPEC §4 异常流程）</title>
+<style>
+  :root{
+    --accent:#2E9BDF; --accent-strong:#1E86C9; --accent-tint:#EAF5FD; --accent-border:#BFDFF5;
+    --desktop:#E9EDF2; --window:#F5F7FA; --card:#FFFFFF;
+    --text:#1D2733; --text-2:#5A6B7D; --text-3:#8A97A6;
+    --border:#E1E7EE; --border-2:#CBD5E0;
+    --ok:#2FA34D; --warn:#9A6B1F; --warn-bg:#FBF3E4; --warn-border:#EBD9B4;
+    --danger:#B23B3B; --danger-bg:#FBEDED; --danger-border:#EFC7C7;
+    --shadow:0 24px 64px rgba(31,45,61,.20),0 2px 8px rgba(31,45,61,.08);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --accent:#4FB0F0; --accent-strong:#6BBEF5; --accent-tint:#1C3A52; --accent-border:#2C5A7C;
+      --desktop:#17191D; --window:#232629; --card:#2C3034;
+      --text:#E9ECEF; --text-2:#A6B0BA; --text-3:#79838E;
+      --border:#3A3F45; --border-2:#4A5058;
+      --ok:#4EC46C; --warn:#D9A94E; --warn-bg:#3A3223; --warn-border:#5A4C2C;
+      --danger:#E06C6C; --danger-bg:#402A2A; --danger-border:#6A3C3C;
+      --shadow:0 24px 64px rgba(0,0,0,.55),0 2px 8px rgba(0,0,0,.4);
+    }
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    background:var(--desktop); color:var(--text);
+    min-height:100vh; padding:48px 24px 64px;
+    display:flex; flex-direction:column; align-items:center; gap:28px;
+    -webkit-font-smoothing:antialiased;
+  }
+  .page-note{font-size:12px;color:var(--text-3);}
+  .page-note a{color:var(--accent);text-decoration:none;}
+  .variant-label{width:100%;max-width:680px;font-size:13px;font-weight:700;color:var(--text-2);letter-spacing:.02em;}
+  .variant-label small{font-weight:400;color:var(--text-3);margin-left:8px;}
+
+  .window{
+    width:100%;max-width:680px;background:var(--window);
+    border-radius:12px;box-shadow:var(--shadow);
+    border:1px solid rgba(0,0,0,.08);overflow:hidden;
+  }
+  @media (prefers-color-scheme: dark){ .window{border-color:rgba(255,255,255,.10);} }
+  .titlebar{
+    height:44px;display:flex;align-items:center;padding:0 16px;position:relative;
+    border-bottom:1px solid var(--border);
+  }
+  .traffic{display:flex;gap:8px;}
+  .traffic span{width:12px;height:12px;border-radius:50%;display:block;box-shadow:inset 0 0 0 .5px rgba(0,0,0,.15);}
+  .t-close{background:#FF5F57;} .t-min{background:#FEBC2E;} .t-max{background:#28C840;}
+  .titlebar .title{position:absolute;left:50%;transform:translateX(-50%);font-size:13px;font-weight:600;color:var(--text-2);}
+
+  /* error panel */
+  .err-panel{padding:44px 48px 46px;text-align:center;}
+  .err-icon{
+    width:58px;height:58px;border-radius:16px;margin:0 auto 18px;
+    display:flex;align-items:center;justify-content:center;font-size:27px;
+    background:var(--danger-bg);border:1px solid var(--danger-border);
+  }
+  .err-icon.warn{background:var(--warn-bg);border-color:var(--warn-border);}
+  .err-panel h3{font-size:16px;font-weight:700;margin-bottom:9px;}
+  .err-panel p{font-size:13px;color:var(--text-2);line-height:1.7;max-width:440px;margin:0 auto;}
+  .err-panel p code{font-family:"SF Mono",ui-monospace,Menlo,monospace;font-size:11.5px;background:var(--card);border:1px solid var(--border);border-radius:5px;padding:1px 6px;color:var(--text-2);}
+  .err-actions{margin-top:22px;display:flex;justify-content:center;gap:10px;}
+  .btn{
+    height:34px;padding:0 18px;border-radius:8px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;
+    border:1px solid var(--border-2);background:var(--card);color:var(--text-2);
+  }
+  .btn:hover{border-color:var(--accent);color:var(--accent);}
+  .btn-primary{
+    border:none;background:linear-gradient(180deg,var(--accent),var(--accent-strong));color:#fff;
+    box-shadow:0 2px 6px rgba(46,155,223,.35);
+  }
+  .btn-primary:hover{filter:brightness(1.05);color:#fff;}
+  .err-detail{margin-top:16px;font-size:11.5px;color:var(--text-3);}
+
+  /* WebView degrade */
+  .update-bar{
+    display:flex;align-items:center;gap:10px;padding:9px 16px;
+    background:var(--warn-bg);border-bottom:1px solid var(--warn-border);
+    font-size:12.5px;color:var(--warn);line-height:1.5;
+  }
+  .update-bar .grow{flex:1;}
+  .update-bar .bar-btn{
+    height:26px;padding:0 12px;border-radius:7px;border:1px solid var(--warn-border);
+    background:transparent;color:var(--warn);font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;flex:none;
+  }
+  .webview{background:var(--card);}
+  .wv-chrome{
+    display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid var(--border);
+  }
+  .wv-nav{color:var(--text-3);font-size:13px;display:flex;gap:10px;}
+  .wv-url{
+    flex:1;height:28px;border-radius:7px;border:1px solid var(--border);
+    background:var(--window);display:flex;align-items:center;gap:7px;
+    padding:0 11px;font-size:12px;color:var(--text-2);
+  }
+  .wv-url .lock{color:var(--ok);font-size:11px;}
+  .wv-page{padding:22px 26px 26px;}
+  .gov-band{height:8px;border-radius:4px 4px 0 0;background:#00274D;margin:-22px -26px 16px;}
+  .wv-page h4{font-size:15px;font-weight:700;margin-bottom:4px;}
+  .wv-page .gov-sub{font-size:11.5px;color:var(--text-3);margin-bottom:16px;}
+  .wv-field{margin-bottom:12px;}
+  .wv-field label{display:block;font-size:12px;color:var(--text-2);margin-bottom:5px;}
+  .wv-sel{height:32px;border:1px solid var(--border-2);border-radius:4px;background:var(--window);width:100%;max-width:340px;display:flex;align-items:center;padding:0 10px;font-size:12.5px;color:var(--text-2);justify-content:space-between;}
+  .wv-btn{height:34px;padding:0 20px;border:none;border-radius:4px;background:#00417A;color:#fff;font-size:13px;font-family:inherit;margin-top:6px;}
+  .wv-note{margin-top:14px;font-size:11.5px;color:var(--text-3);line-height:1.6;}
+
+  /* translation failed (partial degrade in result view) */
+  .doc-head{padding:22px 32px 16px;border-bottom:1px solid var(--border);}
+  .doc-head h1{font-size:16.5px;font-weight:700;line-height:1.5;}
+  .meta{margin-top:9px;display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;font-size:11.5px;color:var(--text-2);}
+  .badge-type{
+    display:inline-flex;align-items:center;gap:6px;background:var(--accent-tint);color:var(--accent-strong);
+    border:1px solid var(--accent-border);border-radius:999px;font-size:11px;font-weight:700;padding:2px 10px;
+  }
+  .trans-banner{
+    margin:14px 32px 0;display:flex;gap:10px;align-items:center;
+    background:var(--warn-bg);border:1px solid var(--warn-border);border-radius:9px;
+    padding:10px 13px;font-size:12.5px;color:var(--warn);line-height:1.6;
+  }
+  .trans-banner .grow{flex:1;}
+  .trans-banner .bar-btn{
+    height:28px;padding:0 13px;border-radius:7px;border:1px solid var(--warn-border);
+    background:transparent;color:var(--warn);font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;flex:none;
+  }
+  .en-list{padding:16px 32px 22px;}
+  .en-sec{font-size:13px;font-weight:700;margin:10px 0 8px;color:var(--text);}
+  .en-item{
+    background:var(--card);border:1px solid var(--border);border-radius:9px;
+    padding:10px 13px;margin-bottom:8px;font-size:12.5px;color:var(--text-2);line-height:1.6;
+  }
+  .en-item .note{display:block;margin-top:6px;font-size:12px;color:var(--text-2);background:var(--window);border:1px solid var(--border);border-radius:6px;padding:5px 9px;}
+  .en-item .note::before{content:"备注 ";font-weight:600;color:var(--text-3);}
+  .dock{
+    border-top:1px solid var(--border);padding:10px 20px 12px;display:flex;align-items:center;gap:14px;
+  }
+  .disclaimer{flex:1;font-size:11px;color:var(--text-3);line-height:1.55;}
+</style>
+</head>
+<body>
+
+<!-- ============ 状态 A：网络失败 ============ -->
+<div class="variant-label">状态 A · 网络失败<small>可重试 · 与 403 文案分开</small></div>
+<div class="window">
+  <div class="titlebar">
+    <div class="traffic"><span class="t-close"></span><span class="t-min"></span><span class="t-max"></span></div>
+    <div class="title">🐾 VisaPaw</div>
+  </div>
+  <div class="err-panel">
+    <div class="err-icon">📡</div>
+    <h3>无法连接到移民局官网</h3>
+    <p>请求 <code>immi.homeaffairs.gov.au</code> 超时，可能是当前网络不可用或不稳定。请检查网络连接后重试；本次生成未消耗任何 AI 额度。</p>
+    <div class="err-actions">
+      <button class="btn">查看网络诊断</button>
+      <button class="btn btn-primary">重试</button>
+    </div>
+    <div class="err-detail">错误代码：NET_TIMEOUT · 2026-07-19 14:31 · 已重试 1 次</div>
+  </div>
+</div>
+
+<!-- ============ 状态 B：官网 403 ============ -->
+<div class="variant-label" style="margin-top:14px;">状态 B · 官网拒绝访问（403）<small>与网络失败明确区分</small></div>
+<div class="window">
+  <div class="titlebar">
+    <div class="traffic"><span class="t-close"></span><span class="t-min"></span><span class="t-max"></span></div>
+    <div class="title">🐾 VisaPaw</div>
+  </div>
+  <div class="err-panel">
+    <div class="err-icon warn">🚫</div>
+    <h3>官网拒绝了本次访问（HTTP 403）</h3>
+    <p>移民局官网拒绝了来自当前网络的请求。这通常发生在使用<b>数据中心 IP / 部分 VPN 或公司代理</b>时——官网只接受住宅网络直连。请切换到家庭 / 手机热点等普通网络后重试。</p>
+    <div class="err-actions">
+      <button class="btn">了解原因</button>
+      <button class="btn btn-primary">切换网络后重试</button>
+    </div>
+    <div class="err-detail">错误代码：HTTP_403_FORBIDDEN · GET /visas/web-evidentiary-tool</div>
+  </div>
+</div>
+
+<!-- ============ 状态 C：结构指纹校验失败 → WebView 降级 ============ -->
+<div class="variant-label" style="margin-top:14px;">状态 C · 结构指纹校验失败<small>降级为内嵌 WebView 手动模式 + 「App 需要更新」提示条</small></div>
+<div class="window">
+  <div class="titlebar">
+    <div class="traffic"><span class="t-close"></span><span class="t-min"></span><span class="t-max"></span></div>
+    <div class="title">🐾 VisaPaw — 官网手动模式（降级）</div>
+  </div>
+  <div class="update-bar">
+    <span>⚠️</span>
+    <span class="grow"><b>官网页面结构已变化，自动解析暂不可用。</b>已为您打开官网工具手动操作；请留意 App 更新以恢复一键生成。</span>
+    <button class="bar-btn">检查更新</button>
+    <button class="bar-btn">重试自动解析</button>
+  </div>
+  <div class="webview">
+    <div class="wv-chrome">
+      <span class="wv-nav">‹ ›</span>
+      <div class="wv-url"><span class="lock">🔒</span>immi.homeaffairs.gov.au/visas/web-evidentiary-tool</div>
+      <span class="wv-nav">⟳</span>
+    </div>
+    <div class="wv-page">
+      <div class="gov-band"></div>
+      <h4>Document Checklist Tool</h4>
+      <div class="gov-sub">Australian Government · Department of Home Affairs（内嵌 WebView 示意）</div>
+      <div class="wv-field">
+        <label>Country of passport</label>
+        <div class="wv-sel"><span>China</span><span>▾</span></div>
+      </div>
+      <div class="wv-field">
+        <label>Education provider</label>
+        <div class="wv-sel"><span>The University of Melbourne (00116K)</span><span>▾</span></div>
+      </div>
+      <button class="wv-btn">Show document checklist</button>
+      <div class="wv-note">手动模式下结果为官网英文原版：不含翻译、分类与合规备注。App 恢复解析能力后可重新一键生成。</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 状态 D：所有 provider 翻译失败 ============ -->
+<div class="variant-label" style="margin-top:14px;">状态 D · 所有 AI Provider 翻译失败<small>保留英文清单 + 局部提示可重试翻译（元信息与免责声明仍完整保留）</small></div>
+<div class="window">
+  <div class="titlebar">
+    <div class="traffic"><span class="t-close"></span><span class="t-min"></span><span class="t-max"></span></div>
+    <div class="title">🐾 VisaPaw — 生成结果（未翻译）</div>
+  </div>
+
+  <div class="doc-head">
+    <h1>澳大利亚学生签证（Subclass 500）申请材料清单</h1>
+    <div class="meta">
+      <span class="badge-type">Streamlined 清单</span>
+      <span>护照国籍：中国（CHN）</span>
+      <span>院校：The University of Melbourne（00116K）</span>
+      <span>数据来源：immi.homeaffairs.gov.au</span>
+      <span>抓取时间：2026-07-19 14:32 AEST</span>
+      <span>翻译：—（全部 provider 失败）</span>
+    </div>
+  </div>
+
+  <div class="trans-banner">
+    <span>🌐</span>
+    <span class="grow"><b>翻译暂不可用。</b>已启用的 provider（MiMo → Claude → ChatGPT）均调用失败（失败详情见 设置 → 日志），以下展示官网英文原文；分类与合规备注不依赖 AI，仍已注入。可稍后单独重试翻译，无需重新抓取。</span>
+    <button class="bar-btn">重试翻译</button>
+  </div>
+
+  <div class="en-list">
+    <div class="en-sec">一、个人身份类 · Identity</div>
+    <div class="en-item">
+      A copy of the identity page of your current passport, showing your photo, personal details, and passport issue and expiry dates.
+      <span class="note">彩色扫描件，四角齐全，清晰可读。</span>
+    </div>
+    <div class="en-sec">五、品行类 · Character</div>
+    <div class="en-item">
+      A police certificate (penal clearance) from each country you have lived in for 12 months or more in the last 10 years.
+      <span class="note" style="color:var(--danger);border-color:var(--danger-border);background:var(--danger-bg);">⚠️ 无犯罪记录证明如原件非英文，只能使用公证处出具的公证翻译件，不接受宣誓翻译。</span>
+    </div>
+    <div class="en-item" style="border-style:dashed;color:var(--text-3);text-align:center;">…其余 15 条英文条目（略）…</div>
+  </div>
+
+  <div class="dock">
+    <div class="disclaimer"><b>免责声明：</b>本清单由官网工具自动生成，仅供参考，不构成移民建议，以官网为准。</div>
+    <button class="btn">⬇ 导出 Markdown</button>
+    <button class="btn">⧉ 复制</button>
+  </div>
+</div>
+
+<div class="page-note">对应 SPEC §4 异常流程 · §9 可降级约束 · AGENTS.md 健壮性约定（三类错误分开）· <a href="index.html">← 返回导航页</a></div>
+
+</body>
+</html>

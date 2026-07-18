@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VisaPaw · 设置 — AI Provider 管理（SPEC §8）</title>
+<style>
+  :root{
+    --accent:#2E9BDF; --accent-strong:#1E86C9; --accent-tint:#EAF5FD; --accent-border:#BFDFF5;
+    --desktop:#E9EDF2; --window:#F5F7FA; --card:#FFFFFF;
+    --text:#1D2733; --text-2:#5A6B7D; --text-3:#8A97A6;
+    --border:#E1E7EE; --border-2:#CBD5E0;
+    --ok:#2FA34D; --warn:#9A6B1F; --warn-bg:#FBF3E4; --warn-border:#EBD9B4;
+    --danger:#C94141; --danger-bg:#FBEDED;
+    --shadow:0 24px 64px rgba(31,45,61,.20),0 2px 8px rgba(31,45,61,.08);
+    --field-bg:#FFFFFF;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --accent:#4FB0F0; --accent-strong:#6BBEF5; --accent-tint:#1C3A52; --accent-border:#2C5A7C;
+      --desktop:#17191D; --window:#232629; --card:#2C3034;
+      --text:#E9ECEF; --text-2:#A6B0BA; --text-3:#79838E;
+      --border:#3A3F45; --border-2:#4A5058;
+      --ok:#4EC46C; --warn:#D9A94E; --warn-bg:#3A3223; --warn-border:#5A4C2C;
+      --danger:#E06C6C; --danger-bg:#402A2A;
+      --shadow:0 24px 64px rgba(0,0,0,.55),0 2px 8px rgba(0,0,0,.4);
+      --field-bg:#25282C;
+    }
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    background:var(--desktop); color:var(--text);
+    min-height:100vh; padding:48px 24px 64px;
+    display:flex; flex-direction:column; align-items:center; gap:18px;
+    -webkit-font-smoothing:antialiased;
+  }
+  .page-note{font-size:12px;color:var(--text-3);}
+  .page-note a{color:var(--accent);text-decoration:none;}
+
+  .window{
+    width:100%;max-width:720px;background:var(--window);
+    border-radius:12px;box-shadow:var(--shadow);
+    border:1px solid rgba(0,0,0,.08);overflow:hidden;
+  }
+  @media (prefers-color-scheme: dark){ .window{border-color:rgba(255,255,255,.10);} }
+  .titlebar{
+    height:46px;display:flex;align-items:center;padding:0 16px;position:relative;
+    border-bottom:1px solid var(--border);
+  }
+  .traffic{display:flex;gap:8px;}
+  .traffic span{width:12px;height:12px;border-radius:50%;display:block;box-shadow:inset 0 0 0 .5px rgba(0,0,0,.15);}
+  .t-close{background:#FF5F57;} .t-min{background:#FEBC2E;} .t-max{background:#28C840;}
+  .titlebar .title{position:absolute;left:50%;transform:translateX(-50%);font-size:13px;font-weight:600;color:var(--text-2);}
+
+  /* settings tabs (macOS style) */
+  .tabs{
+    display:flex;justify-content:center;gap:26px;padding:12px 0 10px;
+    border-bottom:1px solid var(--border);
+  }
+  .tab{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11.5px;color:var(--text-3);cursor:default;}
+  .tab .icon{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:17px;background:var(--card);border:1px solid var(--border);}
+  .tab.active{color:var(--accent-strong);}
+  .tab.active .icon{background:var(--accent-tint);border-color:var(--accent-border);}
+
+  .content{padding:26px 36px 34px;}
+  .section-head{margin-bottom:8px;}
+  .section-head h2{font-size:15px;font-weight:700;}
+  .section-head p{margin-top:5px;font-size:12.5px;color:var(--text-2);line-height:1.6;}
+
+  .order-hint{
+    display:flex;align-items:center;gap:7px;margin:14px 0 10px;
+    font-size:12px;color:var(--text-3);
+  }
+  .order-hint .arrows{color:var(--accent);font-size:13px;}
+
+  /* provider card */
+  .provider{
+    background:var(--card);border:1px solid var(--border);border-radius:11px;
+    margin-bottom:12px;overflow:hidden;
+  }
+  .provider.dragging{border-color:var(--accent);box-shadow:0 8px 24px rgba(46,155,223,.25);transform:rotate(.3deg);}
+  .p-head{display:flex;align-items:center;gap:12px;padding:13px 14px;}
+  .drag{
+    color:var(--text-3);font-size:15px;cursor:grab;letter-spacing:1px;
+    line-height:1;user-select:none;padding:4px 2px;
+  }
+  .order-no{
+    width:22px;height:22px;border-radius:50%;flex:none;
+    background:var(--accent);color:#fff;font-size:12px;font-weight:700;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .provider.disabled .order-no{background:var(--border-2);color:var(--text-2);}
+  .p-logo{width:30px;height:30px;border-radius:8px;flex:none;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;color:#fff;}
+  .logo-claude{background:#C96442;} .logo-openai{background:#10A37F;} .logo-mimo{background:#FF6900;}
+  .p-name{font-size:14px;font-weight:700;}
+  .p-name small{display:block;font-weight:400;font-size:11.5px;color:var(--text-3);margin-top:1px;}
+  .p-status{margin-left:auto;display:flex;align-items:center;gap:12px;}
+  .pill{font-size:11px;font-weight:600;border-radius:999px;padding:2.5px 9px;}
+  .pill-ok{background:var(--accent-tint);color:var(--accent-strong);border:1px solid var(--accent-border);}
+  .pill-warn{background:var(--warn-bg);color:var(--warn);border:1px solid var(--warn-border);}
+  .pill-off{background:var(--window);color:var(--text-3);border:1px solid var(--border);}
+
+  /* macOS toggle */
+  .toggle{width:38px;height:23px;border-radius:12px;background:var(--border-2);position:relative;cursor:pointer;flex:none;transition:background .15s;}
+  .toggle::after{content:"";position:absolute;top:2px;left:2px;width:19px;height:19px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .15s;}
+  .toggle.on{background:var(--accent);}
+  .toggle.on::after{left:17px;}
+
+  .p-body{border-top:1px solid var(--border);padding:14px 16px 16px 62px;display:flex;flex-direction:column;gap:12px;}
+  .frow{display:flex;align-items:center;gap:12px;}
+  .frow label{font-size:12.5px;color:var(--text-2);width:64px;flex:none;}
+  .input,.select{
+    height:31px;border:1px solid var(--border-2);border-radius:7px;
+    background:var(--field-bg);color:var(--text);font-size:13px;padding:0 10px;
+    font-family:inherit;outline:none;flex:1;
+  }
+  .input.key{font-family:"SF Mono",ui-monospace,Menlo,monospace;font-size:12px;letter-spacing:.05em;color:var(--text-2);}
+  .mini-btn{height:31px;padding:0 12px;border-radius:7px;border:1px solid var(--border-2);background:var(--card);color:var(--text-2);font-size:12px;font-family:inherit;cursor:pointer;flex:none;}
+  .mini-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .verified{font-size:11.5px;color:var(--ok);flex:none;}
+  .p-note{font-size:11.5px;color:var(--text-3);line-height:1.6;}
+  .p-note.warn{color:var(--warn);background:var(--warn-bg);border:1px solid var(--warn-border);border-radius:7px;padding:7px 10px;}
+
+  .keychain{
+    margin-top:18px;display:flex;gap:10px;align-items:flex-start;
+    background:var(--accent-tint);border:1px solid var(--accent-border);border-radius:9px;
+    padding:11px 13px;font-size:12.5px;color:var(--text-2);line-height:1.65;
+  }
+  .keychain .icon{font-size:15px;}
+  .keychain b{color:var(--text);}
+
+  /* ---- Logs tab ---- */
+  .variant-label{width:100%;max-width:720px;font-size:13px;font-weight:700;color:var(--text-2);letter-spacing:.02em;}
+  .variant-label small{font-weight:400;color:var(--text-3);margin-left:8px;}
+  .log-toolbar{display:flex;align-items:center;gap:10px;margin:2px 0 12px;}
+  .log-toolbar .select{flex:none;width:auto;min-width:240px;}
+  .log-toolbar .spacer{flex:1;}
+  .run-entry{
+    background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:12px;
+  }
+  .run-head{
+    display:flex;align-items:center;gap:10px;padding:10px 14px;font-size:12.5px;color:var(--text-2);
+    border-bottom:1px solid var(--border);
+  }
+  .run-head b{color:var(--text);}
+  .run-head .pill{margin-left:auto;}
+  .log-body{
+    font-family:"SF Mono",ui-monospace,Menlo,monospace;font-size:11.5px;line-height:1.9;
+    padding:12px 14px;color:var(--text-2);overflow-x:auto;white-space:nowrap;
+  }
+  .lg{display:block;}
+  .lg .t{color:var(--text-3);margin-right:10px;}
+  .lg .k{display:inline-block;min-width:44px;font-weight:700;margin-right:8px;}
+  .k-info{color:var(--accent-strong);} .k-ok{color:var(--ok);} .k-warn{color:var(--warn);} .k-err{color:var(--danger);}
+</style>
+</head>
+<body>
+
+<div class="window">
+  <div class="titlebar">
+    <div class="traffic"><span class="t-close"></span><span class="t-min"></span><span class="t-max"></span></div>
+    <div class="title">VisaPaw 设置</div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab"><div class="icon">⚙️</div>通用</div>
+    <div class="tab active"><div class="icon">🤖</div>AI Provider</div>
+    <div class="tab"><div class="icon">📜</div>日志</div>
+    <div class="tab"><div class="icon">🗂</div>数据缓存</div>
+    <div class="tab"><div class="icon">ℹ️</div>关于</div>
+  </div>
+
+  <div class="content">
+    <div class="section-head">
+      <h2>AI Provider 管理</h2>
+      <p>用于清单翻译与未命中章节的兜底归类。可启用多家并<b>拖拽排序</b>：翻译按顺序调用，前一家失败（认证失败 / 限流 / 套餐额度耗尽 / 服务端错误）自动 fallback 到下一家。</p>
+    </div>
+
+    <div class="order-hint"><span class="arrows">⇅</span>拖动左侧手柄调整 fallback 顺序 · 三家共用同一份术语表与 prompt 模板，切换后术语一致</div>
+
+    <!-- ① MiMo -->
+    <div class="provider">
+      <div class="p-head">
+        <span class="drag" title="拖拽排序">⠿</span>
+        <span class="order-no">1</span>
+        <span class="p-logo logo-mimo">M</span>
+        <div class="p-name">MiMo（小米）<small>OpenAI / Anthropic 双协议兼容 · baseURL 覆写</small></div>
+        <div class="p-status">
+          <span class="pill pill-warn">套餐额度已用尽</span>
+          <span class="toggle on" role="switch" aria-checked="true"></span>
+        </div>
+      </div>
+      <div class="p-body">
+        <div class="frow">
+          <label>API Key</label>
+          <input class="input key" type="text" value="mimo-••••••••••••••••••••3f8a" readonly>
+          <button class="mini-btn">更换</button>
+          <span class="verified">✓ 已验证</span>
+        </div>
+        <div class="frow">
+          <label>模型</label>
+          <select class="select"><option selected>mimo-v2.5-pro（1M 上下文 / 128K 输出）</option><option>mimo-v2.5</option></select>
+        </div>
+        <div class="p-note warn">⚠️ Token Plan 套餐计费：额度耗尽会返回配额错误，App 会将其视为可 fallback 错误并自动切换至下一顺位 provider，同时在生成进度中提示。</div>
+      </div>
+    </div>
+
+    <!-- ② Claude -->
+    <div class="provider">
+      <div class="p-head">
+        <span class="drag" title="拖拽排序">⠿</span>
+        <span class="order-no">2</span>
+        <span class="p-logo logo-claude">A</span>
+        <div class="p-name">Claude（Anthropic）<small>官方 SDK @anthropic-ai/sdk · 结构化输出 + prompt caching</small></div>
+        <div class="p-status">
+          <span class="pill pill-ok">可用 · 当前接替中</span>
+          <span class="toggle on" role="switch" aria-checked="true"></span>
+        </div>
+      </div>
+      <div class="p-body">
+        <div class="frow">
+          <label>API Key</label>
+          <input class="input key" type="text" value="sk-ant-••••••••••••••••••••9k2d" readonly>
+          <button class="mini-btn">更换</button>
+          <span class="verified">✓ 已验证</span>
+        </div>
+        <div class="frow">
+          <label>模型</label>
+          <select class="select"><option selected>claude-opus-4-8（$5 / $25 每 MTok · 单次约 $0.3）</option><option>claude-sonnet-5（$3 / $15 · 2026-08-31 前 $2/$10 · 单次约 $0.1）</option></select>
+        </div>
+        <div class="p-note">按量计费 · 术语表已注入 system prompt 并启用 prompt caching。</div>
+      </div>
+    </div>
+
+    <!-- ③ ChatGPT（未启用） -->
+    <div class="provider disabled">
+      <div class="p-head">
+        <span class="drag" title="拖拽排序">⠿</span>
+        <span class="order-no">3</span>
+        <span class="p-logo logo-openai">G</span>
+        <div class="p-name">ChatGPT（OpenAI）<small>官方 SDK openai · response_format: json_schema</small></div>
+        <div class="p-status">
+          <span class="pill pill-off">未启用</span>
+          <span class="toggle" role="switch" aria-checked="false"></span>
+        </div>
+      </div>
+      <div class="p-body">
+        <div class="frow">
+          <label>API Key</label>
+          <input class="input key" type="text" placeholder="sk-… 添加 API key 以启用" >
+          <button class="mini-btn">验证并保存</button>
+        </div>
+        <div class="frow">
+          <label>模型</label>
+          <select class="select" disabled><option>默认取当期旗舰（保存 key 后可选）</option></select>
+        </div>
+      </div>
+    </div>
+
+    <div class="keychain">
+      <span class="icon">🔐</span>
+      <span><b>密钥安全：</b>所有 API key 均存储于 <b>macOS Keychain</b>（按 provider 命名空间隔离），不落盘明文；发送给 AI 的内容仅为官网公开清单文本，永不包含申请人姓名、护照号等个人信息。</span>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 设置 · 日志标签页 ============ -->
+<div class="variant-label" style="margin-top:10px;">设置 → 日志<small>细粒度生成过程从进度视图移入此处记录（SPEC §4 修订）</small></div>
+<div class="window">
+  <div class="titlebar">
+    <div class="traffic"><span class="t-close"></span><span class="t-min"></span><span class="t-max"></span></div>
+    <div class="title">VisaPaw 设置</div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab"><div class="icon">⚙️</div>通用</div>
+    <div class="tab"><div class="icon">🤖</div>AI Provider</div>
+    <div class="tab active"><div class="icon">📜</div>日志</div>
+    <div class="tab"><div class="icon">🗂</div>数据缓存</div>
+    <div class="tab"><div class="icon">ℹ️</div>关于</div>
+  </div>
+
+  <div class="content">
+    <div class="section-head">
+      <h2>生成日志</h2>
+      <p>记录每次生成的完整执行过程：官网清单类型判定 → 页面抓取 → 解析 → 分类 → 注入备注 → AI 翻译（含 provider fallback 事件）。仅保存在本机。</p>
+    </div>
+
+    <div class="log-toolbar">
+      <select class="select"><option selected>2026-07-19 14:32 · Streamlined · 成功（最近一次）</option><option>2026-07-19 11:07 · Streamlined · 成功</option><option>2026-07-18 20:41 · 失败（网络超时）</option></select>
+      <div class="spacer"></div>
+      <button class="mini-btn">导出日志</button>
+      <button class="mini-btn">清空</button>
+    </div>
+
+    <div class="run-entry">
+      <div class="run-head">
+        <b>2026-07-19 14:32:04</b>
+        <span>CHN · 00116K · 学生类型 01</span>
+        <span>总耗时 27.3s</span>
+        <span class="pill pill-ok">成功</span>
+      </div>
+      <div class="log-body">
+        <span class="lg"><span class="t">14:31:37.102</span><span class="k k-info">判定</span>GetStudentDocumentChecklistType → <b>Streamlined</b>（0.8s）</span>
+        <span class="lg"><span class="t">14:31:37.910</span><span class="k k-info">抓取</span>GET /visas/web-evidentiary-tool · 1.4 MB · 本机直连（2.4s）</span>
+        <span class="lg"><span class="t">14:31:40.355</span><span class="k k-ok">解析</span>div#Streamlined → 12 章节 · 34 条 · 结构指纹校验通过（0.3s）</span>
+        <span class="lg"><span class="t">14:31:40.671</span><span class="k k-info">分类</span>确定性映射命中 11/12 章节 · 「Special categories」由 AI 兜底归类（已标注）</span>
+        <span class="lg"><span class="t">14:31:40.688</span><span class="k k-warn">分类</span>映射表未命中新章节 → 触发「映射表需更新」告警</span>
+        <span class="lg"><span class="t">14:31:40.734</span><span class="k k-ok">备注</span>规则引擎 R1–R3 注入 34 条备注（含 1 条 R3 公证翻译警告）</span>
+        <span class="lg"><span class="t">14:31:41.020</span><span class="k k-err">翻译</span>MiMo · mimo-v2.5-pro → 配额错误 quota_exhausted（Token Plan 额度耗尽）</span>
+        <span class="lg"><span class="t">14:31:41.033</span><span class="k k-warn">翻译</span>fallback：第 1 顺位 MiMo → 第 2 顺位 Claude · claude-opus-4-8</span>
+        <span class="lg"><span class="t">14:32:03.980</span><span class="k k-ok">翻译</span>完成 34/34 条 · 结构化输出等长校验通过 · 术语表命中 9 处</span>
+        <span class="lg"><span class="t">14:32:04.412</span><span class="k k-ok">完成</span>清单已生成 · 实际 provider：Claude · claude-opus-4-8</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="page-note">对应 SPEC §8 AI Provider 层 + §4 修订（细粒度进度以日志形式沉淀于设置页）· <a href="index.html">← 返回导航页</a></div>
+
+</body>
+</html>

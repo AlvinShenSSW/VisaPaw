@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VisaPaw · 结果视图 — 中英双语清单（SPEC §5 §6 §7）</title>
+<style>
+  :root{
+    --accent:#2E9BDF; --accent-strong:#1E86C9; --accent-tint:#EAF5FD; --accent-border:#BFDFF5;
+    --desktop:#E9EDF2; --window:#F5F7FA; --card:#FFFFFF;
+    --text:#1D2733; --text-2:#5A6B7D; --text-3:#8A97A6;
+    --border:#E1E7EE; --border-2:#CBD5E0;
+    --ok:#2FA34D; --warn:#9A6B1F; --warn-bg:#FBF3E4; --warn-border:#EBD9B4;
+    --danger:#B23B3B; --danger-bg:#FBEDED; --danger-border:#EFC7C7;
+    --shadow:0 24px 64px rgba(31,45,61,.20),0 2px 8px rgba(31,45,61,.08);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --accent:#4FB0F0; --accent-strong:#6BBEF5; --accent-tint:#1C3A52; --accent-border:#2C5A7C;
+      --desktop:#17191D; --window:#232629; --card:#2C3034;
+      --text:#E9ECEF; --text-2:#A6B0BA; --text-3:#79838E;
+      --border:#3A3F45; --border-2:#4A5058;
+      --ok:#4EC46C; --warn:#D9A94E; --warn-bg:#3A3223; --warn-border:#5A4C2C;
+      --danger:#E06C6C; --danger-bg:#402A2A; --danger-border:#6A3C3C;
+      --shadow:0 24px 64px rgba(0,0,0,.55),0 2px 8px rgba(0,0,0,.4);
+    }
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    background:var(--desktop); color:var(--text);
+    min-height:100vh; padding:48px 24px 64px;
+    display:flex; flex-direction:column; align-items:center; gap:18px;
+    -webkit-font-smoothing:antialiased;
+  }
+  .page-note{font-size:12px;color:var(--text-3);}
+  .page-note a{color:var(--accent);text-decoration:none;}
+
+  .window{
+    width:100%;max-width:860px;background:var(--window);
+    border-radius:12px;box-shadow:var(--shadow);
+    border:1px solid rgba(0,0,0,.08);overflow:hidden;
+    display:flex;flex-direction:column;
+  }
+  @media (prefers-color-scheme: dark){ .window{border-color:rgba(255,255,255,.10);} }
+  .titlebar{
+    height:46px;display:flex;align-items:center;padding:0 16px;position:relative;flex:none;
+    border-bottom:1px solid var(--border);
+  }
+  .traffic{display:flex;gap:8px;}
+  .traffic span{width:12px;height:12px;border-radius:50%;display:block;box-shadow:inset 0 0 0 .5px rgba(0,0,0,.15);}
+  .t-close{background:#FF5F57;} .t-min{background:#FEBC2E;} .t-max{background:#28C840;}
+  .titlebar .title{position:absolute;left:50%;transform:translateX(-50%);font-size:13px;font-weight:600;color:var(--text-2);}
+  .titlebar .tools{margin-left:auto;display:flex;gap:8px;}
+  .tb-btn{
+    height:26px;padding:0 11px;border-radius:7px;border:1px solid var(--border-2);
+    background:var(--card);color:var(--text-2);font-size:12px;font-family:inherit;cursor:pointer;
+  }
+  .tb-btn:hover{border-color:var(--accent);color:var(--accent);}
+
+  /* ---- document header ---- */
+  .doc{flex:1;overflow:auto;max-height:72vh;}
+  .doc-head{padding:30px 44px 20px;border-bottom:1px solid var(--border);}
+  .doc-head h1{font-size:20px;font-weight:700;line-height:1.45;letter-spacing:.01em;}
+  .meta{
+    margin-top:12px;display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;
+    font-size:12.5px;color:var(--text-2);
+  }
+  .meta b{color:var(--text);font-weight:600;}
+  .badge-type{
+    display:inline-flex;align-items:center;gap:6px;
+    background:var(--accent-tint);color:var(--accent-strong);
+    border:1px solid var(--accent-border);border-radius:999px;
+    font-size:12px;font-weight:700;padding:3px 12px;letter-spacing:.03em;
+  }
+  .badge-type::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--accent);}
+  .meta-src{
+    margin-top:10px;font-size:12px;color:var(--text-3);
+    display:flex;flex-wrap:wrap;gap:6px 18px;
+  }
+  .meta-src .ai{color:var(--text-2);}
+
+  /* ---- category & items ---- */
+  .cat{padding:22px 44px 6px;}
+  .cat + .cat{border-top:1px solid var(--border);}
+  .cat-title{
+    display:flex;align-items:baseline;gap:10px;margin-bottom:14px;
+  }
+  .cat-title .zh{font-size:15.5px;font-weight:700;}
+  .cat-title .zh::before{content:"";display:inline-block;width:4px;height:14px;border-radius:2px;background:var(--accent);margin-right:9px;vertical-align:-1px;}
+  .cat-title .en{font-size:12px;color:var(--text-3);}
+  .cat-title .count{margin-left:auto;font-size:11.5px;color:var(--text-3);}
+
+  .item{
+    background:var(--card);border:1px solid var(--border);border-radius:10px;
+    padding:14px 16px 12px;margin-bottom:12px;
+  }
+  .item-line{display:flex;gap:10px;align-items:baseline;}
+  .item-no{flex:none;font-size:12.5px;color:var(--text-3);font-variant-numeric:tabular-nums;width:22px;}
+  .item-zh{font-size:14.5px;font-weight:600;line-height:1.6;}
+  .term{color:var(--accent-strong);font-weight:600;}
+  .auto-tag{
+    display:inline-flex;align-items:center;gap:4px;margin-left:8px;vertical-align:1px;
+    font-size:11px;font-weight:600;color:var(--accent-strong);
+    border:1px dashed var(--accent-border);background:var(--accent-tint);
+    border-radius:6px;padding:1.5px 7px;
+  }
+  details.en-orig{margin:8px 0 0 32px;}
+  details.en-orig summary{
+    list-style:none;cursor:pointer;font-size:12px;color:var(--accent);
+    display:inline-flex;align-items:center;gap:5px;user-select:none;
+  }
+  details.en-orig summary::-webkit-details-marker{display:none;}
+  details.en-orig summary::before{content:"▸";font-size:10px;transition:transform .15s;}
+  details.en-orig[open] summary::before{transform:rotate(90deg);}
+  .en-text{
+    margin-top:7px;padding:9px 12px;border-left:3px solid var(--accent-border);
+    background:var(--window);border-radius:0 8px 8px 0;
+    font-size:12.5px;color:var(--text-2);line-height:1.65;
+  }
+  .en-text .src-link{color:var(--accent);text-decoration:none;font-size:11.5px;}
+
+  .notes{margin:10px 0 2px 32px;display:flex;flex-direction:column;gap:6px;}
+  .note{
+    font-size:12.5px;line-height:1.6;color:var(--text-2);
+    background:var(--window);border:1px solid var(--border);
+    border-radius:7px;padding:7px 11px;display:flex;gap:8px;align-items:flex-start;
+  }
+  .note::before{content:"备注";flex:none;font-size:11px;font-weight:600;color:var(--text-3);border:1px solid var(--border-2);border-radius:5px;padding:0 5px;margin-top:1.5px;}
+  .note-warn{
+    font-size:12.5px;line-height:1.65;font-weight:500;color:var(--danger);
+    background:var(--danger-bg);border:1px solid var(--danger-border);
+    border-left:4px solid var(--danger);
+    border-radius:7px;padding:8px 11px;display:flex;gap:8px;align-items:flex-start;
+  }
+  .note-warn::before{content:"⚠️";flex:none;margin-top:1px;}
+
+  /* ---- fixed bottom: disclaimer + actions ---- */
+  .dock{
+    flex:none;border-top:1px solid var(--border);background:var(--window);
+    padding:12px 24px 14px;display:flex;align-items:center;gap:18px;
+  }
+  .disclaimer{
+    flex:1;font-size:11.5px;color:var(--text-3);line-height:1.6;
+  }
+  .disclaimer b{color:var(--text-2);font-weight:600;}
+  .actions{display:flex;gap:9px;flex:none;}
+  .btn{
+    height:34px;padding:0 15px;border-radius:8px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;
+    border:1px solid var(--border-2);background:var(--card);color:var(--text-2);
+    display:inline-flex;align-items:center;gap:7px;
+  }
+  .btn:hover{border-color:var(--accent);color:var(--accent);}
+  .btn-primary{
+    border:none;background:linear-gradient(180deg,var(--accent),var(--accent-strong));color:#fff;
+    box-shadow:0 2px 6px rgba(46,155,223,.35);
+  }
+  .btn-primary:hover{filter:brightness(1.05);color:#fff;}
+</style>
+</head>
+<body>
+
+<div class="window">
+  <div class="titlebar">
+    <div class="traffic"><span class="t-close"></span><span class="t-min"></span><span class="t-max"></span></div>
+    <div class="title">🐾 VisaPaw — 生成结果</div>
+    <div class="tools">
+      <button class="tb-btn" onclick="toggleAll()" id="toggle-en">展开全部英文</button>
+      <button class="tb-btn">重新生成</button>
+    </div>
+  </div>
+
+  <div class="doc">
+    <!-- 文档头：标题 + 元信息（本地拼接，不经 AI） -->
+    <div class="doc-head">
+      <div style="font-size:11.5px;font-weight:700;color:var(--accent-strong);letter-spacing:.05em;margin-bottom:7px;">STEP 3 / 3 · 查看结果</div>
+      <h1>澳大利亚学生签证（Subclass 500）申请材料清单</h1>
+      <div class="meta">
+        <span class="badge-type">Streamlined 清单</span>
+        <span>护照国籍：<b>中国（CHN）</b></span>
+        <span>院校：<b>The University of Melbourne · 墨尔本大学（CRICOS 00116K）</b></span>
+        <span>学生类型：<b>普通学生（01）</b></span>
+      </div>
+      <div class="meta-src">
+        <span>数据来源：immi.homeaffairs.gov.au — Document Checklist Tool</span>
+        <span>抓取时间：2026-07-19 14:32 AEST</span>
+        <span class="ai">翻译：Claude · claude-opus-4-8（第 2 顺位，MiMo 额度耗尽后接替 · 详见 设置 → 日志）</span>
+      </div>
+    </div>
+
+    <!-- 一、个人身份类 -->
+    <div class="cat">
+      <div class="cat-title"><span class="zh">一、个人身份类</span><span class="en">Identity · Change of name</span><span class="count">3 项</span></div>
+
+      <div class="item">
+        <div class="item-line"><span class="item-no">1.</span><span class="item-zh">护照个人信息页（Passport bio page）</span></div>
+        <details class="en-orig">
+          <summary>英文原文</summary>
+          <div class="en-text">Identity — A copy of the identity page of your current passport, showing your photo, personal details, and passport issue and expiry dates. <a class="src-link" href="#">官网原文 ↗</a></div>
+        </details>
+        <div class="notes">
+          <div class="note">彩色扫描件，四角齐全，清晰可读。</div>
+        </div>
+      </div>
+
+      <div class="item">
+        <div class="item-line"><span class="item-no">2.</span><span class="item-zh">出生证明 / 出生医学证明（Birth certificate）</span></div>
+        <details class="en-orig">
+          <summary>英文原文</summary>
+          <div class="en-text">Identity — A copy of your birth certificate showing the names of both your parents. <a class="src-link" href="#">官网原文 ↗</a></div>
+        </details>
+        <div class="notes">
+          <div class="note">彩色扫描件，四角齐全，清晰可读。</div>
+          <div class="note">非英文材料须附宣誓翻译（certified translation）或公证翻译件。</div>
+        </div>
+      </div>
+
+      <div class="item">
+        <div class="item-line"><span class="item-no">3.</span><span class="item-zh">曾用名 / 改名证明（Change of name evidence）</span></div>
+        <details class="en-orig">
+          <summary>英文原文</summary>
+          <div class="en-text">Change of name — Evidence of a change of name, such as a marriage certificate or change of name certificate, if any of your documents are in a former name. <a class="src-link" href="#">官网原文 ↗</a></div>
+        </details>
+        <div class="notes">
+          <div class="note">彩色扫描件，四角齐全，清晰可读。</div>
+          <div class="note">非英文材料须附宣誓翻译（certified translation）或公证翻译件。</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 二、教育与工作背景类 -->
+    <div class="cat">
+      <div class="cat-title"><span class="zh">二、教育与工作背景类</span><span class="en">Intended study · English · GS · Employment</span><span class="count">5 项</span></div>
+
+      <div class="item">
+        <div class="item-line"><span class="item-no">4.</span><span class="item-zh">入学确认书（<span class="term">CoE</span>, Confirmation of Enrolment）</span></div>
+        <details class="en-orig">
+          <summary>英文原文</summary>
+          <div class="en-text">Evidence of intended study — A Confirmation of Enrolment (CoE) for each course of study. Your CoE must be valid at the time you lodge your application. <a class="src-link" href="#">官网原文 ↗</a></div>
+        </details>
+        <div class="notes">
+          <div class="note">彩色扫描件，四角齐全，清晰可读。</div>
+        </div>
+      </div>
+
+      <div class="item">
+        <div class="item-line"><span class="item-no">5.</span><span class="item-zh">特殊类别学习证明（Special categories of intended study）<span class="auto-tag">✦ 自动归类</span></span></div>
+        <details class="en-orig">
+          <summary>英文原文</summary>
+          <div class="en-text">Special categories — If you are a secondary exchange student, provide your Acceptance Advice of Secondary Exchange Students (AASES) form. <a class="src-link" href="#">官网原文 ↗</a></div>
+        </details>
+        <div class="notes">
+          <div class="note">彩色扫描件，四角齐全，清晰可读。</div>
+          <div class="note">本条为官网新增章节，由 AI 兜底归入「教育与工作背景类」，请人工复核；映射表待更新。</div>
+        </div>
+      </div>
+
+      <div class="item">
+        <div class="item-line"><span class="item-no">6.</span><span class="item-zh">英语能力证明（English language ability — IELTS / TOEFL / PTE 成绩单）</span></div>
+        <details class="en-orig">
+          <summary>英文原文</summary>
+          <div class="en-text">English language ability — Evidence of an English language test taken in the 2 years before you apply, such as IELTS, TOEFL iBT or PTE Academic, unless exempt. <a class="src-link" href="#">官网原文 ↗</a></div>
+        </details>
+        <div class="notes">
+          <div class="note">彩色扫描件，四角齐全，清晰可读。</div>
+        </div>
+      </div>
+
+      <div class="item">
+        <div class="item-line"><span class="item-no">7.</span><span class="item-zh">真实学生要求陈述（<span class="term">GS</span>, Genuine Student）</span></div>
+        <details class="en-orig">
+          <summary>英文原文</summary>
+          <div class="en-text">Genuine Student — Responses to the Genuine Student questions in the application form, with supporting evidence of your circumstances and reasons for choosing your course and Australia. <a class="src-link" href="#">官网原文 ↗</a></div>
+        </details>
+        <div class="notes">
+          <div class="note">彩色扫描件，四角齐全，清晰可读。</div>
+          <div class="note">非英文材料须附宣誓翻译（certified translation）或公证翻译件。</div>
+        </div>
+      </div>
+
+      <div class="item">
+        <div class="item-line"><span class="item-no">8.</span><span class="item-zh">工作经历证明（Employment history — 在职证明、简历）</span></div>
+        <details class="en-orig">
+          <summary>英文原文</summary>
+          <div class="en-text">Employment history — Evidence of your employment history, such as employment references or a curriculum vitae, if relevant to your Genuine Student claims. <a class="src-link" href="#">官网原文 ↗</a></div>
+        </details>
+        <div class="notes">
+          <div class="note">彩色扫描件，四角齐全，清晰可读。</div>
+          <div class="note">非英文材料须附宣誓翻译（certified translation）或公证翻译件。</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 三、资金财务类 -->
+    <div class="cat">
+      <div class="cat-title"><span class="zh">三、资金财务类</span><span class="en">Financial capacity</span><span class="count">2 项</span></div>
+
+      <div class="item">
+        <div class="item-line"><span class="item-no">9.</span><span class="item-zh">资金能力证明（Evidence of financial capacity — 存款证明 / 留学贷款）</span></div>
+        <details class="en-orig">
+          <summary>英文原文</summary>
+          <div class="en-text">Financial capacity — Evidence of funds to cover travel, 12 months of living costs, course fees and schooling costs for dependants, such as money deposits with a financial institution or an education loan. <a class="src-link" href="#">官网原文 ↗</a></div>
+        </details>
+        <div class="notes">
+          <div class="note">彩色扫描件，四角齐全，清晰可读。</div>
+          <div class="note">非英文材料须附宣誓翻译（certified translation）或公证翻译件。</div>
+        </div>
+      </div>
+
+      <div class="item">
+        <div class="item-line"><span class="item-no">10.</span><span class="item-zh">父母 / 配偶年收入证明（Annual income evidence）</span></div>
+        <details class="en-orig">
+          <summary>英文原文</summary>
+          <div class="en-text">Financial capacity — Evidence of your parents' or spouse's annual income, such as official government documents (for example, tax assessments), issued in the 12 months before you apply. <a class="src-link" href="#">官网原文 ↗</a></div>
+        </details>
+        <div class="notes">
+          <div class="note">彩色扫描件，四角齐全，清晰可读。</div>
+          <div class="note">非英文材料须附宣誓翻译（certified translation）或公证翻译件。</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 四、健康与保险类 -->
+    <div class="cat">
+      <div class="cat-title"><span class="zh">四、健康与保险类</span><span class="en">Health insurance (OSHC)</span><span class="count">1 项</span></div>
+
+      <div class="item">
+        <div class="item-line"><span class="item-no">11.</span><span class="item-zh">海外学生健康保险凭证（<span class="term">OSHC</span>, Overseas Student Health Cover）</span></div>
+        <details class="en-orig">
+          <summary>英文原文</summary>
+          <div class="en-text">Health insurance — Evidence of adequate health insurance (OSHC) for the duration of your stay in Australia, including the policy number and period of cover. <a class="src-link" href="#">官网原文 ↗</a></div>
+        </details>
+        <div class="notes">
+          <div class="note">彩色扫描件，四角齐全，清晰可读。</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 五、品行类 -->
+    <div class="cat">
+      <div class="cat-title"><span class="zh">五、品行类</span><span class="en">Character</span><span class="count">1 项</span></div>
+
+      <div class="item">
+        <div class="item-line"><span class="item-no">12.</span><span class="item-zh">无犯罪记录证明（Police certificate / Penal clearance）</span></div>
+        <details class="en-orig">
+          <summary>英文原文</summary>
+          <div class="en-text">Character — A police certificate (penal clearance) from each country you have lived in for 12 months or more in the last 10 years, if requested. <a class="src-link" href="#">官网原文 ↗</a></div>
+        </details>
+        <div class="notes">
+          <div class="note">彩色扫描件，四角齐全，清晰可读。</div>
+          <div class="note-warn">无犯罪记录证明如原件非英文，只能使用公证处出具的公证翻译件，不接受宣誓翻译（本备注覆盖通用翻译要求）。</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 六、家庭成员与监护类 -->
+    <div class="cat">
+      <div class="cat-title"><span class="zh">六、家庭成员与监护类</span><span class="en">Welfare · Parental consent · Relationship · Dependants</span><span class="count">3 项</span></div>
+
+      <div class="item">
+        <div class="item-line"><span class="item-no">13.</span><span class="item-zh">未满 18 岁学生监护安排（Welfare arrangements for students under 18）</span></div>
+        <details class="en-orig">
+          <summary>英文原文</summary>
+          <div class="en-text">Welfare arrangements for under 18 — Evidence of welfare arrangements, such as a CAAW letter from your education provider, or Form 157N if staying with a parent or relative. <a class="src-link" href="#">官网原文 ↗</a></div>
+        </details>
+        <div class="notes">
+          <div class="note">彩色扫描件，四角齐全，清晰可读。</div>
+        </div>
+      </div>
+
+      <div class="item">
+        <div class="item-line"><span class="item-no">14.</span><span class="item-zh">父母同意书（Parental consent — Form 1229 或授权声明）</span></div>
+        <details class="en-orig">
+          <summary>英文原文</summary>
+          <div class="en-text">Parental consent — Form 1229 or a statutory declaration signed by both parents, plus a copy of each parent's identification, if you are under 18. <a class="src-link" href="#">官网原文 ↗</a></div>
+        </details>
+        <div class="notes">
+          <div class="note">彩色扫描件，四角齐全，清晰可读。</div>
+          <div class="note">非英文材料须附宣誓翻译（certified translation）或公证翻译件。</div>
+        </div>
+      </div>
+
+      <div class="item">
+        <div class="item-line"><span class="item-no">15.</span><span class="item-zh">配偶 / 事实伴侣关系证明（Relationship — spouse / de facto）</span></div>
+        <details class="en-orig">
+          <summary>英文原文</summary>
+          <div class="en-text">Relationship — Evidence of your relationship with your spouse or de facto partner, such as a marriage certificate or evidence of cohabitation for at least 12 months. <a class="src-link" href="#">官网原文 ↗</a></div>
+        </details>
+        <div class="notes">
+          <div class="note">彩色扫描件，四角齐全，清晰可读。</div>
+          <div class="note">非英文材料须附宣誓翻译（certified translation）或公证翻译件。</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 七、代理与授权类 -->
+    <div class="cat" style="padding-bottom:26px;">
+      <div class="cat-title"><span class="zh">七、代理与授权类</span><span class="en">Form 956 · Form 956A</span><span class="count">2 项</span></div>
+
+      <div class="item">
+        <div class="item-line"><span class="item-no">16.</span><span class="item-zh">委任移民代理表（<span class="term">Form 956</span> — Appointment of a registered migration agent）</span></div>
+        <details class="en-orig">
+          <summary>英文原文</summary>
+          <div class="en-text">Form 956 — Appointment of a registered migration agent, legal practitioner or exempt person, if someone is providing you with immigration assistance. <a class="src-link" href="#">官网原文 ↗</a></div>
+        </details>
+        <div class="notes">
+          <div class="note">彩色扫描件，四角齐全，清晰可读。</div>
+        </div>
+      </div>
+
+      <div class="item">
+        <div class="item-line"><span class="item-no">17.</span><span class="item-zh">委任 / 撤销授权接收人表（<span class="term">Form 956A</span> — Authorised recipient）</span></div>
+        <details class="en-orig">
+          <summary>英文原文</summary>
+          <div class="en-text">Form 956A — Appointment or withdrawal of an authorised recipient, if you want another person to receive correspondence on your behalf. <a class="src-link" href="#">官网原文 ↗</a></div>
+        </details>
+        <div class="notes">
+          <div class="note">彩色扫描件，四角齐全，清晰可读。</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 底部固定：免责声明 + 操作区（任何结果展示不可省略） -->
+  <div class="dock">
+    <div class="disclaimer"><b>免责声明：</b>本清单由官网 Document Checklist Tool 自动生成并翻译，仅供参考，不构成移民建议，请以 immi.homeaffairs.gov.au 官网为准。</div>
+    <div class="actions">
+      <button class="btn">⬇ 导出 Markdown</button>
+      <button class="btn">⬇ 导出 PDF</button>
+      <button class="btn btn-primary">⧉ 复制到剪贴板</button>
+    </div>
+  </div>
+</div>
+
+<div class="page-note">Step 3 / 3 · 对应 SPEC §5 分类 · §6 备注规则 · §7 标题与文档结构（修订：标题不含姓名，输入不再采集个人信息）· <a href="index.html">← 返回导航页</a></div>
+
+<script>
+  let allOpen = false;
+  function toggleAll(){
+    allOpen = !allOpen;
+    document.querySelectorAll('details.en-orig').forEach(d => d.open = allOpen);
+    document.getElementById('toggle-en').textContent = allOpen ? '收起全部英文' : '展开全部英文';
+  }
+  // 默认展开前两条，示意“可展开的英文原文层”
+  document.querySelectorAll('details.en-orig')[0].open = true;
+  document.querySelectorAll('details.en-orig')[11].open = true;
+</script>
+
+</body>
+</html>
