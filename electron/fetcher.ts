@@ -109,14 +109,24 @@ export function createFetcher(deps: FetcherDeps): Fetcher {
     return res;
   }
 
+  /** 读 body：传输中断/超时 → network；只有读取成功后的解析失败才算 structure（Codex 外门 P2） */
+  async function readBody(res: Response): Promise<string> {
+    try {
+      return await res.text();
+    } catch (e) {
+      throw new FetchError('network', `官网响应读取中断：${(e as Error).message}`);
+    }
+  }
+
   async function postJson(pathname: string, body: unknown): Promise<unknown> {
     const res = await request(pathname, {
       method: 'POST',
       headers: { 'User-Agent': UA, 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
+    const text = await readBody(res);
     try {
-      return await res.json();
+      return JSON.parse(text) as unknown;
     } catch {
       throw new FetchError('structure', '官网接口返回了非 JSON 内容——页面结构可能已变化');
     }
@@ -141,6 +151,8 @@ export function createFetcher(deps: FetcherDeps): Fetcher {
       if (
         typeof raw.fetchedAt === 'number' &&
         Array.isArray(raw.items) &&
+        raw.items.length > 0 &&
+        raw.items.every((i) => typeof i?.key === 'string' && typeof i?.value === 'string') &&
         now() - raw.fetchedAt < TERMS_CACHE_MS
       ) {
         return raw.items;
@@ -161,6 +173,10 @@ export function createFetcher(deps: FetcherDeps): Fetcher {
         propertyName: 'Code',
       });
       const data = unwrapEnvelope(payload, 'Termstore');
+      // 两个 term set 均应为全量列表——空结果视为结构异常，绝不写缓存（Codex 外门 P2）
+      if (data.length === 0) {
+        throw new FetchError('structure', `Termstore（${TERM_SETS[kind]}）返回空列表——官网可能已改版`);
+      }
       const items: TermItem[] = data.map((row) => {
         const r = row as { Key?: unknown; Value?: unknown };
         if (typeof r.Key !== 'string' || typeof r.Value !== 'string') {
@@ -195,7 +211,7 @@ export function createFetcher(deps: FetcherDeps): Fetcher {
         method: 'GET',
         headers: { 'User-Agent': UA },
       });
-      const html = await res.text();
+      const html = await readBody(res);
       if (!verifyStructure(html)) {
         throw new FetchError('structure', '清单页缺少 Regular/Streamlined/Undetermined 结构——官网已改版，请使用 WebView 手动模式');
       }

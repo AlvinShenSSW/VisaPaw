@@ -46,6 +46,24 @@ describe('fetchTerms（Termstore + 7 天缓存）', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(3);
   });
 
+  it('Termstore 空列表 → structure 错误且不写缓存（Codex 外门 P2）', async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockImplementationOnce(() => Promise.resolve(ok('{"d":{"success":true,"data":[]}}')))
+      .mockImplementationOnce(() => Promise.resolve(ok(countriesJson)));
+    const f = createFetcher({ cacheDir: tmp(), fetchImpl });
+    await expect(f.fetchTerms('countries')).rejects.toMatchObject({ kind: 'structure' });
+    // 空结果未入缓存 → 下一次调用重抓成功
+    expect((await f.fetchTerms('countries')).length).toBe(237);
+  });
+
+  it('body 读取中断 → network 而非 structure（Codex 外门 P2）', async () => {
+    const res = new Response('x');
+    vi.spyOn(res, 'text').mockRejectedValue(new Error('aborted mid-body'));
+    const f = createFetcher({ cacheDir: tmp(), fetchImpl: vi.fn().mockResolvedValue(res) });
+    await expect(f.fetchTerms('countries')).rejects.toMatchObject({ kind: 'network' });
+  });
+
   it('Termstore 响应形状不符 → structure 错误', async () => {
     const f = createFetcher({
       cacheDir: tmp(),
