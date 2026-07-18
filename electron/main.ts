@@ -11,6 +11,9 @@ import { createSettingsStore, PROVIDER_IDS, type SettingsStore, type ProviderId 
 import { createCredentialStore, type CredentialStore, type SafeCrypto } from './credential-store.ts';
 import { createLogStore, type LogStore } from './logging.ts';
 import { createFetcher, type Fetcher } from './fetcher.ts';
+import { createAiService } from './ai/orchestrator.ts';
+import { CancelledError, generateChecklist } from './pipeline.ts';
+import type { GenerateParams, ProgressEvent } from '../common/types.ts';
 
 const DEV_URL = process.env.VITE_DEV_SERVER_URL || 'http://localhost:5274';
 
@@ -128,6 +131,72 @@ function registerIpc(): void {
     return logs.exportRun(id);
   });
   ipcMain.handle('logs:clear', () => logs.clear());
+
+  // 生成管线（#10）——进度流式推送，取消协作式；同一时刻仅一次生成
+  let activeCancel: { cancelled: boolean } | null = null;
+  ipcMain.handle('generate:start', async (e, raw: unknown) => {
+    if (activeCancel) throw new Error('已有生成任务进行中');
+    // 严格边界校验——畸形参数不得流向官网接口（Kimi PR#26 P2）
+    const p = raw as GenerateParams;
+    const isTerm = (t: unknown): t is { key: string; value: string } =>
+      !!t && typeof (t as { key?: unknown }).key === 'string' && typeof (t as { value?: unknown }).value === 'string';
+    if (
+      !isTerm(p?.country) ||
+      !(p?.school === 'undecided' || isTerm(p?.school)) ||
+      typeof p?.studentTypeCode !== 'string' ||
+      !/^0[1-5]$/.test(p.studentTypeCode)
+    ) {
+      throw new Error('生成参数不完整或不合法');
+    }
+    const cancel = { cancelled: false };
+    const sender = e.sender;
+    const onProgress = (ev: ProgressEvent): void => {
+      if (!sender.isDestroyed()) sender.send('generate:progress', ev);
+    };
+    try {
+      // 锁在 try 内取得——中途抛错也必由 finally 释放（Kimi PR#26 P2）
+      activeCancel = cancel;
+      const run = logs.startRun({
+        country: p.country.value,
+        cricosCode: p.school === 'undecided' ? '未定' : p.school.value,
+        studentTypeCode: p.studentTypeCode,
+      });
+      try {
+        const result = await generateChecklist(
+          p,
+          {
+            fetcher,
+            createAiService: (onEvent) =>
+              createAiService({
+                settings: settings.get(),
+                getKey: (id) => credentials.getKey(id),
+                onEvent,
+              }),
+            run,
+          },
+          onProgress,
+          cancel
+        );
+        // 保留英文清单仍是可用结果——run 记 success，翻译失败以标志区分（Kimi PR#26 P2）
+        run.finish('success', {
+          checklistType: result.checklistType,
+          translationFailed: result.translationFailed,
+        });
+        return result;
+      } catch (err) {
+        run.finish('error');
+        throw err;
+      }
+    } catch (err) {
+      if (err instanceof CancelledError) throw new Error('CANCELLED');
+      throw err;
+    } finally {
+      activeCancel = null;
+    }
+  });
+  ipcMain.handle('generate:cancel', () => {
+    if (activeCancel) activeCancel.cancelled = true;
+  });
   ipcMain.handle('system:status', () => ({
     dark: nativeTheme.shouldUseDarkColors,
     version: app.getVersion(),

@@ -1,0 +1,67 @@
+/* Step 2 生成清单轻量视图——结构与取值移植自 mockups/02（唯一视觉验收基准），仅 token 变量 */
+
+.sstep.done { color: var(--text-2); }
+.sline.done { background: var(--accent-border); }
+
+.stage { text-align: center; padding: 6px 0 4px; }
+.spinner-big {
+  width: 52px; height: 52px; border-radius: 50%; margin: 0 auto 18px;
+  border: 4px solid var(--accent-tint); border-top-color: var(--accent);
+  animation: vp-spin 1s linear infinite;
+}
+@keyframes vp-spin { to { transform: rotate(360deg); } }
+.stage h2 { font-size: 16.5px; font-weight: 700; }
+.stage .sub { margin-top: 7px; font-size: 13px; color: var(--text-2); line-height: 1.6; }
+.stage .params { margin: 16px auto 0; display: inline-flex; flex-wrap: wrap; justify-content: center; gap: 7px; }
+.pchip {
+  font-size: 12px; color: var(--text-2); background: var(--card);
+  border: 1px solid var(--border); border-radius: 999px; padding: 4px 12px;
+}
+.pchip b { color: var(--text); font-weight: 600; }
+
+.phases { margin: 26px auto 0; max-width: 400px; display: flex; flex-direction: column; gap: 9px; text-align: left; }
+.phase {
+  display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text-2);
+  background: var(--card); border: 1px solid var(--border); border-radius: 9px; padding: 10px 13px;
+}
+.phase .ic { flex: none; width: 18px; text-align: center; }
+.phase.done .ic { color: var(--ok); }
+.phase.active { border-color: var(--accent-border); background: var(--accent-tint); color: var(--text); }
+.phase.pending { color: var(--text-3); border-style: dashed; }
+.phase .right { margin-left: auto; font-size: 11.5px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.phase .grow { flex: 1; }
+.mini-spin {
+  width: 12px; height: 12px; border-radius: 50%;
+  border: 2px solid var(--accent-tint); border-top-color: var(--accent);
+  animation: vp-spin 1s linear infinite; display: inline-block;
+}
+.provider-tag {
+  display: inline-flex; align-items: center; font-size: 11px; font-weight: 600;
+  border-radius: 5px; padding: 1.5px 7px; margin-left: 7px;
+  background: var(--card); color: var(--accent-strong); border: 1px solid var(--accent-border);
+}
+.bar { height: 4px; border-radius: 2px; background: var(--border); overflow: hidden; margin-top: 7px; }
+.bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-strong)); border-radius: 2px; }
+
+.fallback-note {
+  margin: 18px auto 0; max-width: 400px; display: flex; gap: 9px; align-items: flex-start; text-align: left;
+  background: var(--warn-bg); border: 1px solid var(--warn-border); border-radius: 9px;
+  padding: 10px 12px; font-size: 12.5px; color: var(--warn); line-height: 1.6;
+}
+
+.footer-actions {
+  margin-top: 28px; padding-top: 16px; border-top: 1px solid var(--border);
+  display: flex; align-items: center; font-size: 12px; color: var(--text-3);
+}
+.footer-actions .log-link { color: var(--accent); text-decoration: none; }
+.btn-ghost {
+  margin-left: auto; height: 32px; padding: 0 16px; border-radius: 8px; font-size: 13px; font-family: inherit;
+  border: 1px solid var(--border-2); background: var(--card); color: var(--text-2); cursor: pointer;
+}
+.gen-error {
+  margin: 18px auto 0; max-width: 400px; text-align: left;
+  background: var(--danger-bg); border: 1px solid var(--danger); border-radius: 9px;
+  padding: 10px 12px; font-size: 12.5px; color: var(--danger); line-height: 1.6;
+}
+.gen-error-actions { display: flex; gap: 8px; margin-top: 8px; }
+.gen-error-actions .btn-ghost { margin-left: 0; }

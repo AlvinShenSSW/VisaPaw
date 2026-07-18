@@ -26,7 +26,10 @@ const PROVIDER_LABEL: Record<string, string> = {
 export interface RunHandle {
   readonly id: string;
   log(level: LogLevel, stage: LogStage, message: string, durationMs?: number): void;
-  finish(status: 'success' | 'error', extra?: { checklistType?: string }): void;
+  finish(
+    status: 'success' | 'error',
+    extra?: { checklistType?: string; translationFailed?: boolean }
+  ): void;
 }
 
 export interface LogStore {
@@ -155,6 +158,9 @@ export function createLogStore(dir: string, opts: LogStoreOptions = {}): LogStor
           run.summary.status = status;
           run.summary.totalMs = now() - startedAt;
           if (extra?.checklistType) run.summary.checklistType = extra.checklistType;
+          if (extra?.translationFailed !== undefined) {
+            run.summary.translationFailed = extra.translationFailed;
+          }
           // 导出文本要有明确的终态行（Kimi 终审 minor）
           run.entries.push({
             ts: now(),
@@ -213,6 +219,8 @@ export function createLogStore(dir: string, opts: LogStoreOptions = {}): LogStor
 export function aiEventToLog(e: AiEvent): Omit<LogEntry, 'ts'> | null {
   const label = (p: string): string => PROVIDER_LABEL[p] ?? p;
   switch (e.type) {
+    case 'attempt':
+      return null; // 每批都会发——进度供 UI，不进日志防噪
     case 'skip':
       return {
         level: 'info',

@@ -40,6 +40,8 @@ export interface AiMeta {
 
 export type AiEvent =
   | { type: 'skip'; provider: ProviderId; reason: 'no-key' | 'disabled' }
+  /** 尝试开始——UI 可即时显示当前 provider（Codex PR#26 P2） */
+  | { type: 'attempt'; provider: ProviderId; model: string }
   | { type: 'retry'; provider: ProviderId; model: string; errorKind: 'parse' }
   | {
       type: 'fallback';
@@ -122,6 +124,7 @@ export function createAiService(deps: AiServiceDeps): AiService {
       }
       const model = resolveModel(setting.id, setting.model);
       const adapter = factory({ id: setting.id, apiKey, model });
+      emit({ type: 'attempt', provider: setting.id, model });
 
       const attemptOnce = async (): Promise<T> => {
         const raw = await adapter.callStructured(call);
