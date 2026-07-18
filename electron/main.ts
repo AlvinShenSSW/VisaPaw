@@ -233,15 +233,20 @@ function registerIpc(): void {
       studentTypeCode: prev.params.studentTypeCode,
     });
     try {
-      const result = await retranslateResult(prev, {
-        run,
-        createAiService: (onEvent) =>
-          createAiService({
-            settings: settings.get(),
-            getKey: (id) => credentials.getKey(id),
-            onEvent,
-          }),
-      });
+      const result = await retranslateResult(
+        prev,
+        {
+          run,
+          createAiService: (onEvent) =>
+            createAiService({
+              settings: settings.get(),
+              getKey: (id) => credentials.getKey(id),
+              onEvent,
+            }),
+        },
+        undefined,
+        lock // 取消令牌贯通重试路径（Kimi PR#29 minor）
+      );
       run.finish('success', { checklistType: result.checklistType, translationFailed: false });
       return { ok: true, result };
     } catch (err) {
@@ -260,6 +265,15 @@ function registerIpc(): void {
   }));
 }
 
+function isOfficialUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return u.protocol === 'https:' && u.hostname === 'immi.homeaffairs.gov.au';
+  } catch {
+    return false;
+  }
+}
+
 app.setAppUserModelId('com.alvinshen.visapaw');
 
 // WebView 降级安全约束（SPEC §4/#13）：导航限制在 immi.homeaffairs.gov.au 域内、
@@ -270,10 +284,12 @@ app.on('web-contents-created', (_e, contents) => {
     delete (webPreferences as { preload?: string }).preload;
     webPreferences.nodeIntegration = false;
     webPreferences.contextIsolation = true;
+    webPreferences.sandbox = true; // 嵌入内容强制沙箱（Kimi PR#29 minor）
   });
   if (contents.getType() !== 'webview') return;
   contents.on('will-navigate', (ev, url) => {
-    if (!url.startsWith('https://immi.homeaffairs.gov.au/')) ev.preventDefault();
+    // hostname 精确匹配——前缀比较可被 immi.homeaffairs.gov.au.evil.com 欺骗（Kimi PR#29 P2）
+    if (!isOfficialUrl(url)) ev.preventDefault();
   });
   contents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith('https://')) {

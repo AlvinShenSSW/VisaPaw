@@ -244,7 +244,10 @@ describe('mapGenerateError（#13 类型驱动的错误分发）', () => {
     expect(mapGenerateError(new FetchError('forbidden', '403')).kind).toBe('forbidden');
     expect(mapGenerateError(new FetchError('structure', '改版')).kind).toBe('structure');
     expect(mapGenerateError(new CE()).kind).toBe('cancelled');
-    expect(mapGenerateError(new AiError('network', '断网', 'claude')).kind).toBe('network');
+    // AiError 的 network 不得误诊为「官网不可达」（Kimi PR#29 P2）
+    const aiNet = mapGenerateError(new AiError('network', '断网', 'claude'));
+    expect(aiNet.kind).toBe('unknown');
+    expect(aiNet.message).toContain('AI provider');
     expect(mapGenerateError(new Error('boom')).kind).toBe('unknown');
   });
 });

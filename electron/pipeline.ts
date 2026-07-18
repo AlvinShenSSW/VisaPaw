@@ -23,7 +23,7 @@ import {
   type ClassifierEvent,
 } from './classifier.ts';
 import { DEFAULT_RULES, annotateItem } from './annotator.ts';
-import { AiExhaustedError } from './ai/errors.ts';
+import { AiError, AiExhaustedError } from './ai/errors.ts';
 import type { AiEvent, AiService } from './ai/orchestrator.ts';
 import type { RunHandle } from './logging.ts';
 import { aiEventToLog, classifierEventToLog } from './logging.ts';
@@ -34,6 +34,10 @@ const TRANSLATE_BATCH_SIZE = 8;
 /** 管线错误 → 结构化 outcome 种类（跨 IPC；#13 三态 UI 的类型驱动数据源） */
 export function mapGenerateError(e: unknown): { kind: 'network' | 'forbidden' | 'structure' | 'cancelled' | 'unknown'; message: string } {
   if (e instanceof CancelledError) return { kind: 'cancelled', message: e.message };
+  // AI provider 的 network ≠ 官网不可达——不得用「无法连接移民局官网」误诊（Kimi PR#29 P2）
+  if (e instanceof AiError) {
+    return { kind: 'unknown', message: `AI provider 网络错误：${e.message}` };
+  }
   const kind = (e as { kind?: string })?.kind;
   if (kind === 'network' || kind === 'forbidden' || kind === 'structure') {
     return { kind, message: (e as Error).message };
@@ -261,7 +265,8 @@ export async function generateChecklist(
 export async function retranslateResult(
   result: GenerateResult,
   deps: Pick<PipelineDeps, 'createAiService' | 'run'>,
-  onProgress: (e: ProgressEvent) => void = () => undefined
+  onProgress: (e: ProgressEvent) => void = () => undefined,
+  cancel: CancelToken = { cancelled: false }
 ): Promise<GenerateResult> {
   const run = deps.run;
   onProgress({ type: 'phase', phase: 'translate', status: 'active' });
@@ -281,6 +286,7 @@ export async function retranslateResult(
   let aiMeta: GenerateResult['aiMeta'] = null;
   const aiMetas: GenerateResult['aiMetas'] = [];
   for (let offset = 0; offset < allTexts.length; offset += TRANSLATE_BATCH_SIZE) {
+    if (cancel.cancelled) throw new CancelledError();
     const batch = allTexts.slice(offset, offset + TRANSLATE_BATCH_SIZE);
     const { translations: zh, meta } = await translateAi.translate(batch);
     translations.push(...zh);
