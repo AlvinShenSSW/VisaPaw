@@ -47,7 +47,7 @@
 | 3 | 清单内容 | `GET /visas/web-evidentiary-tool`（约 1.4MB HTML），三套清单预渲染于 `div#Regular` / `div#Streamlined` / `div#Undetermined` | ✅ Regular 版约 48KB，16 个章节 |
 
 - 无需浏览器自动化、无需 reCAPTCHA token；需浏览器 UA + `Content-Type: application/json`。
-- ⚠️ 判定接口仅实测过「未定院校」入参（`provider:"NotListed"`、`cricosCode:" "`）；**选定院校时的入参映射（推测为 provider=Termstore Key、cricosCode=Termstore Value）待 fetcher（GitHub issue #4）落地时抓包实测确认并回填本节**，实测前不得当作事实实现；确认后 fetcher 需补选校路径的 fixture 测试。
+- ✅ 判定接口选定院校入参映射**已实测确认**（2026-07-19，#4 fixture 抓取会话）：`provider` = Termstore Key（校名，如 `"The University of Melbourne (UniMelb)"`）、`cricosCode` = Termstore Value（CRICOS 码，如 `"00116K"`）；未定院校为 `provider:"NotListed"`、`cricosCode:" "`。两路径均有 fixture 测试（`tests/fixtures/checklist-type-chn-*.json`）。
 - **官网对数据中心 IP 返回 403**，本机住宅 IP 正常 → 抓取必须在用户 Mac 上直连。
 - 学生类型码：`01` 普通（默认）/ `02` 中学交换 / `03` PhD 论文评审续签 / `04` DFAT 资助 / `05` 国防部资助。
 
