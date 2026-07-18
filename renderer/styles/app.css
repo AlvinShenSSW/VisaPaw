@@ -1,0 +1,116 @@
+/* 骨架壳样式——只引用 tokens.css 的变量（硬编码色值由单测拦截） */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-stack);
+  font-size: var(--fs-body);
+  color: var(--text);
+  background: var(--window);
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+
+.titlebar {
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  border-bottom: 1px solid var(--border);
+  background: var(--window);
+  /* hiddenInset：原生红绿灯悬浮于左上角，整条标题栏可拖动 */
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+.titlebar .title {
+  font-size: var(--fs-body);
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.titlebar .gear {
+  position: absolute;
+  right: 14px;
+  -webkit-app-region: no-drag;
+  color: var(--text-3);
+  cursor: pointer;
+  font-size: 15px;
+}
+
+.shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--window);
+}
+
+.placeholder-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 28px 36px;
+  text-align: center;
+  box-shadow: var(--shadow);
+}
+
+.placeholder-card h1 {
+  font-size: var(--fs-body-lg);
+  margin-bottom: 8px;
+}
+
+.placeholder-card p {
+  color: var(--text-2);
+  font-size: var(--fs-small);
+}
+
+.steps {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 14px;
+  color: var(--text-3);
+  font-size: var(--fs-small);
+}
+
+.steps .active {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.statusbar {
+  height: 28px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 14px;
+  border-top: 1px solid var(--border);
+  color: var(--text-3);
+  font-size: var(--fs-small);
+  background: var(--window);
+}
+
+.statusbar .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ok);
+}

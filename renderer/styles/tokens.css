@@ -1,0 +1,60 @@
+/*
+ * 设计 token 单一来源——取值逐字来自 mockups/01–05 的 :root 变量集。
+ * 其他样式文件只允许引用 var(--*)，不得硬编码色值（tests/tokens.test.ts 强制）。
+ */
+
+:root {
+  --accent: #2E9BDF;
+  --accent-strong: #1E86C9;
+  --accent-tint: #EAF5FD;
+  --accent-border: #BFDFF5;
+  --desktop: #E9EDF2;
+  --window: #F5F7FA;
+  --card: #FFFFFF;
+  --text: #1D2733;
+  --text-2: #5A6B7D;
+  --text-3: #8A97A6;
+  --border: #E1E7EE;
+  --border-2: #CBD5E0;
+  --ok: #2FA34D;
+  --warn: #9A6B1F;
+  --warn-bg: #FBF3E4;
+  --warn-border: #EBD9B4;
+  --danger: #C94141;
+  --danger-bg: #FBEDED;
+  --shadow: 0 24px 64px rgba(31, 45, 61, .20), 0 2px 8px rgba(31, 45, 61, .08);
+  --field-bg: #FFFFFF;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --accent: #4FB0F0;
+    --accent-strong: #6BBEF5;
+    --accent-tint: #1C3A52;
+    --accent-border: #2C5A7C;
+    --desktop: #17191D;
+    --window: #232629;
+    --card: #2C3034;
+    --text: #E9ECEF;
+    --text-2: #A6B0BA;
+    --text-3: #79838E;
+    --border: #3A3F45;
+    --border-2: #4A5058;
+    --ok: #4EC46C;
+    --warn: #D9A94E;
+    --warn-bg: #3A3223;
+    --warn-border: #5A4C2C;
+    --danger: #E06C6C;
+    --danger-bg: #402A2A;
+    --shadow: 0 24px 64px rgba(0, 0, 0, .55), 0 2px 8px rgba(0, 0, 0, .4);
+    --field-bg: #25282C;
+  }
+}
+
+/* 字体与排版基线（mockups 设计说明） */
+:root {
+  --font-stack: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif;
+  --fs-body: 13.5px;
+  --fs-body-lg: 14.5px;
+  --fs-small: 12px;
+}
