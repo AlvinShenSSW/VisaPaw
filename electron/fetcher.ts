@@ -81,6 +81,10 @@ interface TermsCacheFile {
   items: TermItem[];
 }
 
+function verifyStructure(html: string): boolean {
+  return FINGERPRINT_DIVS.every((marker) => html.includes(marker));
+}
+
 export function createFetcher(deps: FetcherDeps): Fetcher {
   const fetchImpl = deps.fetchImpl ?? fetch;
   const now = deps.now ?? Date.now;
@@ -192,14 +196,12 @@ export function createFetcher(deps: FetcherDeps): Fetcher {
         headers: { 'User-Agent': UA },
       });
       const html = await res.text();
-      if (!this.verifyStructure(html)) {
+      if (!verifyStructure(html)) {
         throw new FetchError('structure', '清单页缺少 Regular/Streamlined/Undetermined 结构——官网已改版，请使用 WebView 手动模式');
       }
       return { html, fetchedAt: new Date(now()).toISOString() };
     },
 
-    verifyStructure(html) {
-      return FINGERPRINT_DIVS.every((marker) => html.includes(marker));
-    },
+    verifyStructure,
   };
 }
