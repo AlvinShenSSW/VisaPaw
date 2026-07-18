@@ -63,11 +63,24 @@ function createWindow(): void {
 
   // 外链（官网原文 ↗ 及清单内官方链接，如 legislation.gov.au）交系统浏览器；
   // 链接均源于官网页面内容，HTTPS 即放行，窗口内一律不导航（Codex PR#27 P2）
-  win.webContents.setWindowOpenHandler(({ url }) => {
+  const openExternally = (url: string): void => {
     if (url.startsWith('https://')) {
-      void shell.openExternal(url);
+      shell.openExternal(url).catch((err: unknown) => {
+        console.error('[visapaw] openExternal 失败：', err);
+      });
     }
+  };
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    openExternally(url);
     return { action: 'deny' };
+  });
+  // will-navigate 兜底：普通 <a href> / location 跳转不受 windowOpenHandler 管辖（Kimi PR#27 P2）
+  win.webContents.on('will-navigate', (ev, url) => {
+    const isApp = url.startsWith(DEV_URL) || url.startsWith('file://');
+    if (!isApp) {
+      ev.preventDefault();
+      openExternally(url);
+    }
   });
 
   if (process.env.VISAPAW_SMOKE === '1') {
