@@ -103,7 +103,7 @@ export function createAiService(deps: AiServiceDeps): AiService {
 
   async function runStructured<T>(
     call: StructuredCall,
-    validate: (raw: unknown) => T
+    validate: (raw: unknown, provider: ProviderId) => T
   ): Promise<{ value: T; meta: AiMeta }> {
     const attempts: AiAttempt[] = [];
     for (const setting of deps.settings.providers) {
@@ -122,7 +122,7 @@ export function createAiService(deps: AiServiceDeps): AiService {
       const attemptOnce = async (): Promise<T> => {
         const raw = await adapter.callStructured(call);
         try {
-          return validate(raw);
+          return validate(raw, setting.id);
         } catch (e) {
           if (e instanceof AiError) throw e;
           throw new AiError('parse', `结构化输出校验失败：${(e as Error).message}`, setting.id);
@@ -171,12 +171,13 @@ export function createAiService(deps: AiServiceDeps): AiService {
           schema: translateSchema,
           schemaName: 'translate_result',
         },
-        (raw) => {
+        (raw, provider) => {
           const parsed = translateSchema.parse(raw);
           if (parsed.translations.length !== items.length) {
             throw new AiError(
               'parse',
-              `译文数组长度不等：期望 ${items.length}，得到 ${parsed.translations.length}`
+              `译文数组长度不等：期望 ${items.length}，得到 ${parsed.translations.length}`,
+              provider
             );
           }
           return parsed;
@@ -193,10 +194,10 @@ export function createAiService(deps: AiServiceDeps): AiService {
           schema: classifySchema,
           schemaName: 'classify_result',
         },
-        (raw) => {
+        (raw, provider) => {
           const parsed = classifySchema.parse(raw);
           if (!categories.includes(parsed.category)) {
-            throw new AiError('parse', `归类结果不在候选分类中：${parsed.category}`);
+            throw new AiError('parse', `归类结果不在候选分类中：${parsed.category}`, provider);
           }
           return parsed;
         }

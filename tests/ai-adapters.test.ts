@@ -113,6 +113,10 @@ describe('classifyProviderError（三家共用错误映射）', () => {
     // 无 status 但非连接层（SDK 解析畸形响应）→ parse，可重试/fallback（Codex 外门 P2）
     [{ name: 'SyntaxError', message: 'Unexpected token < in JSON' }, 'parse'],
     [{ name: 'TypeError', message: "Cannot read properties of undefined (reading 'choices')" }, 'parse'],
+    // 无 status 的配额错误不得丢失 quota 语义（Kimi 终审 P2）
+    [{ code: 'insufficient_quota', message: 'You exceeded your current quota' }, 'quota'],
+    // status 0 = fetch/代理无响应 → network（Kimi 终审 P2）
+    [{ status: 0, message: 'no response' }, 'network'],
   ];
   for (const [input, expected] of cases) {
     it(`${JSON.stringify(input)} → ${expected}`, () => {
