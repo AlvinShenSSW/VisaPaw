@@ -42,13 +42,16 @@ const mdEscape = (s: string): string => s.replace(/([\\`*_[\]#])/g, '\\$1').repl
 /** 尖括号 URL 形式 + 文本元字符转义——防 ]/() 破坏链接语法（Kimi PR#30 minor） */
 const mdLink = (text: string, href: string): string => `[${mdEscape(text)}](<${href}>)`;
 
-/** 与 Step3 相同的原文链接回退：条目首链 → 清单页锚点（Codex PR#30 P2） */
+/** 与主进程外链模型一致：导出物仅放行 http(s) 链接（Kimi PR#30 P2 comment） */
+const isAllowedHref = (href: string): boolean => /^https?:\/\//i.test(href);
+
+/** 与 Step3 相同的原文链接回退：条目首个合法链接 → 清单页锚点（Codex PR#30 P2） */
 function itemSourceUrl(row: {
   item: { links: Array<{ href: string }> };
   anchorId: string | null;
 }): string {
   return (
-    row.item.links[0]?.href ??
+    row.item.links.find((l) => isAllowedHref(l.href))?.href ??
     `https://immi.homeaffairs.gov.au/visas/web-evidentiary-tool${row.anchorId ? `#${row.anchorId}` : ''}`
   );
 }
@@ -83,7 +86,8 @@ export function buildMarkdown(result: GenerateResult): string {
         lines.push(`${pad}> ${mdLink('官网原文 ↗', src)}`);
       }
       for (const link of row.item.links) {
-        lines.push(`${pad}- 链接：${mdLink(link.text, link.href)}`);
+        // 非 http(s) 链接统一降级为纯文本，不产出可点击目标
+        lines.push(`${pad}- 链接：${isAllowedHref(link.href) ? mdLink(link.text, link.href) : mdEscape(link.text)}`);
       }
       for (const n of row.item.notes) {
         lines.push(`${pad}- ${n.level === 'warning' ? '⚠️ ' : ''}备注：${ensurePeriod(n.note.replace(/^⚠️\s*/, ''))}`);
@@ -125,7 +129,7 @@ export function buildPlainText(result: GenerateResult): string {
         lines.push(`${pad}英文原文：官网原文 ↗（${src}）`);
       }
       for (const link of row.item.links) {
-        lines.push(`${pad}- 链接：${link.text}（${link.href}）`);
+        lines.push(`${pad}- 链接：${link.text}${isAllowedHref(link.href) ? `（${link.href}）` : ''}`);
       }
       for (const n of row.item.notes) {
         lines.push(`${pad}- ${n.level === 'warning' ? '⚠️ ' : ''}备注：${ensurePeriod(n.note.replace(/^⚠️\s*/, ''))}`);
@@ -170,8 +174,10 @@ export function buildPrintHtml(result: GenerateResult): string {
       ${row.item.zh !== undefined ? `<div class="en-text">${esc(row.sectionName)} — ${esc(row.item.en)} <a href="${esc(itemSourceUrl(row))}">官网原文 ↗</a></div>` : ''}
       ${row.item.links
         .map(
-          // 与 Markdown/纯文本一致枚举条目链接——纸质件 URL 须可见（Kimi PR#30 minor）
-          (l) => `<div class="note">链接：<a href="${esc(l.href)}">${esc(l.text)}</a>（${esc(l.href)}）</div>`
+          // 与 Markdown/纯文本一致枚举条目链接——纸质件 URL 须可见（Kimi PR#30 minor）；
+          // 非 http(s) 降级为纯文本（Kimi PR#30 P2 comment）
+          (l) =>
+            `<div class="note">链接：${isAllowedHref(l.href) ? `<a href="${esc(l.href)}">${esc(l.text)}</a>（${esc(l.href)}）` : esc(l.text)}</div>`
         )
         .join('')}
       ${row.item.notes

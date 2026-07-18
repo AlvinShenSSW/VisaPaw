@@ -225,6 +225,40 @@ describe('与结果视图逐条一致（共用 buildDisplayGroups 构造保证 +
     const html = buildPrintHtml(hacked);
     expect(html).toContain('链接：<a href="https://x.example/a(b)">my *doc*</a>（https://x.example/a(b)）');
   });
+
+  it('链接协议白名单：非 http(s) 链接在三种导出中降级为纯文本（Kimi PR#30 P2）', async () => {
+    const r = await result();
+    const hacked: GenerateResult = {
+      ...r,
+      groups: [
+        {
+          category: '个人身份类',
+          sections: [
+            {
+              name: 'S',
+              anchorId: 'anchor-x',
+              autoClassified: false,
+              pendingManual: false,
+              items: [
+                {
+                  en: 'x',
+                  zh: '中',
+                  links: [{ text: 'evil', href: 'javascript:alert(1)' }],
+                  notes: [],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    for (const text of [buildMarkdown(hacked), buildPlainText(hacked), buildPrintHtml(hacked)]) {
+      expect(text).not.toContain('javascript:');
+      expect(text).toContain('evil');
+    }
+    // 原文链接回退跳过非法首链，落到清单页锚点
+    expect(buildMarkdown(hacked)).toContain('web-evidentiary-tool#anchor-x');
+  });
 });
 
 describe('降级态导出（翻译失败仍完整）', () => {

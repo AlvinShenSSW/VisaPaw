@@ -18,6 +18,42 @@ import type { ExportOutcome, GenerateOutcome, GenerateParams, GenerateResult, Pr
 
 const DEV_URL = process.env.VITE_DEV_SERVER_URL || 'http://localhost:5274';
 
+/** 导出 payload 深层校验——覆盖 exporter 实际触达的全部嵌套字段（Kimi PR#30 P2 comment） */
+function isExportableResult(raw: unknown): raw is GenerateResult {
+  const r = raw as GenerateResult;
+  return Boolean(
+    r &&
+      typeof r.checklistType === 'string' &&
+      typeof r.fetchedAt === 'string' &&
+      r.params &&
+      typeof r.params.country?.key === 'string' &&
+      typeof r.params.country?.value === 'string' &&
+      (r.params.school === 'undecided' ||
+        (typeof r.params.school?.key === 'string' && typeof r.params.school?.value === 'string')) &&
+      typeof r.params.studentTypeCode === 'string' &&
+      Array.isArray(r.aiMetas) &&
+      Array.isArray(r.groups) &&
+      r.groups.every(
+        (g) =>
+          typeof g?.category === 'string' &&
+          Array.isArray(g?.sections) &&
+          g.sections.every(
+            (s) =>
+              typeof s?.name === 'string' &&
+              Array.isArray(s?.items) &&
+              s.items.every(
+                (i) =>
+                  typeof i?.en === 'string' &&
+                  Array.isArray(i?.links) &&
+                  i.links.every((l) => typeof l?.text === 'string' && typeof l?.href === 'string') &&
+                  Array.isArray(i?.notes) &&
+                  i.notes.every((n) => typeof n?.note === 'string')
+              )
+          )
+      )
+  );
+}
+
 let settings: SettingsStore;
 let credentials: CredentialStore;
 let logs: LogStore;
@@ -264,38 +300,49 @@ function registerIpc(): void {
   // 导出（#14）——markdown/pdf 保存框写文件；copy 剪贴板双格式
   let activeExport = false; // 并发互斥：防重复保存框/并发隐藏窗口（Kimi PR#30 P2）
   ipcMain.handle('export:result', async (_e, kind: unknown, raw: unknown): Promise<ExportOutcome> => {
-    const result = raw as GenerateResult;
-    if (!result?.groups || !result?.checklistType || !result?.fetchedAt) {
-      return { ok: false, message: '导出数据不完整' };
-    }
+    // 深层结构校验后再断言——顶层三字段不足以防畸形 payload 在 exporter
+    // 深处抛运行时异常（Kimi PR#30 P2 comment）
+    if (!isExportableResult(raw)) return { ok: false, message: '导出数据格式不正确' };
+    const result = raw;
     if (activeExport) return { ok: false, message: '已有导出进行中，请稍候' };
     activeExport = true;
+    // 保存框挂到可见主窗口上，防 macOS 下对话框落到主窗口后方（Kimi PR#30 minor）
+    const owner = BrowserWindow.getAllWindows().find((w) => !w.isDestroyed() && w.isVisible());
     try {
       if (kind === 'copy') {
         clipboard.write({ text: buildPlainText(result), html: buildPrintHtml(result) });
         return { ok: true };
       }
       if (kind === 'markdown') {
-        const { canceled, filePath } = await dialog.showSaveDialog({
+        const opts = {
           defaultPath: `澳大利亚学生签证材料清单-${result.checklistType}.md`,
           filters: [{ name: 'Markdown', extensions: ['md'] }],
-        });
+        };
+        const { canceled, filePath } = owner
+          ? await dialog.showSaveDialog(owner, opts)
+          : await dialog.showSaveDialog(opts);
         if (canceled || !filePath) return { ok: false, cancelled: true, message: '已取消' };
         // 异步写盘——同步写会阻塞 main 进程事件循环与全部 IPC（Kimi PR#30 P2）
         await fs.promises.writeFile(filePath, buildMarkdown(result), 'utf8');
         return { ok: true, path: filePath };
       }
       if (kind === 'pdf') {
-        const { canceled, filePath } = await dialog.showSaveDialog({
+        const opts = {
           defaultPath: `澳大利亚学生签证材料清单-${result.checklistType}.pdf`,
           filters: [{ name: 'PDF', extensions: ['pdf'] }],
-        });
+        };
+        const { canceled, filePath } = owner
+          ? await dialog.showSaveDialog(owner, opts)
+          : await dialog.showSaveDialog(opts);
         if (canceled || !filePath) return { ok: false, cancelled: true, message: '已取消' };
         // 隐藏窗口渲染专用打印模板 → printToPDF（无额外依赖，SPEC §8）。
         // 经临时文件 loadFile 而非 data: URL——长清单会逼近 Chromium data URL
-        // 长度上限导致 loadURL 失败（Kimi PR#30 minor）
+        // 长度上限导致 loadURL 失败（Kimi PR#30 minor）。视口取 A4 @96dpi，
+        // 防默认视口影响打印布局（Kimi PR#30 minor）
         const printWin = new BrowserWindow({
           show: false,
+          width: 794,
+          height: 1123,
           webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false },
         });
         const tmpHtml = path.join(app.getPath('temp'), `visapaw-print-${Date.now()}.html`);
