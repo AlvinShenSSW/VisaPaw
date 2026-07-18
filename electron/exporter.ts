@@ -32,6 +32,10 @@ function sourceLine(result: GenerateResult): string {
 
 const ensurePeriod = (t: string): string => (/[。.!？?]$/.test(t) ? t : `${t}。`);
 
+/** 尖括号 URL 形式 + 文本方括号转义——防 ]/() 破坏链接语法（Kimi PR#30 minor） */
+const mdLink = (text: string, href: string): string =>
+  `[${text.replace(/([[\]])/g, '\\$1').replace(/\n/g, ' ')}](<${href}>)`;
+
 /** 与 Step3 相同的原文链接回退：条目首链 → 清单页锚点（Codex PR#30 P2） */
 function itemSourceUrl(row: {
   item: { links: Array<{ href: string }> };
@@ -66,12 +70,12 @@ export function buildMarkdown(result: GenerateResult): string {
       lines.push(`${row.no}. ${main}${tags}`);
       const src = itemSourceUrl(row);
       if (row.item.zh !== undefined) {
-        lines.push(`${pad}> ${row.sectionName} — ${row.item.en}${src ? ` [官网原文 ↗](${src})` : ''}`);
+        lines.push(`${pad}> ${row.sectionName} — ${row.item.en}${src ? ` ${mdLink('官网原文 ↗', src)}` : ''}`);
       } else if (src) {
-        lines.push(`${pad}> [官网原文 ↗](${src})`);
+        lines.push(`${pad}> ${mdLink('官网原文 ↗', src)}`);
       }
       for (const link of row.item.links) {
-        lines.push(`${pad}- 链接：[${link.text}](${link.href})`);
+        lines.push(`${pad}- 链接：${mdLink(link.text, link.href)}`);
       }
       for (const n of row.item.notes) {
         lines.push(`${pad}- ${n.level === 'warning' ? '⚠️ ' : ''}备注：${ensurePeriod(n.note.replace(/^⚠️\s*/, ''))}`);
@@ -95,15 +99,21 @@ export function buildPlainText(result: GenerateResult): string {
     .replace(/^# /gm, '')
     .replace(/^## /gm, '')
     .replace(/^(\s*)> /gm, '$1英文原文：')
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1（$2）')
+    .replace(/\[([^\]]+)\]\(<([^>]+)>\)/g, '$1（$2）')
     .replace(/^---$/gm, '——————————');
 }
 
 /** 打印模板（Electron printToPDF）——延续结果页设计语言的浅色打印适配 */
 export function buildPrintHtml(result: GenerateResult): string {
   const groups = buildDisplayGroups(result);
+  // 属性上下文安全——引号也须转义，否则 URL/译文中的 " 可注入标记（Kimi PR#30 P2）
   const esc = (s: string): string =>
-    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    s
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   const body = groups
     .map(
       (g, gi) => `

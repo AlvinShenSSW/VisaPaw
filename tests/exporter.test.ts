@@ -188,7 +188,7 @@ describe('降级态导出（翻译失败仍完整）', () => {
       const firstQuote = after10.split('\n').find((l) => l.trimStart().startsWith('>'));
       if (firstQuote) expect(firstQuote.startsWith('    >')).toBe(true);
     }
-    expect(md).toContain('[官网原文 ↗](https://immi.homeaffairs.gov.au/visas/web-evidentiary-tool');
+    expect(md).toContain('[官网原文 ↗](<https://immi.homeaffairs.gov.au/visas/web-evidentiary-tool');
     // 纯文本中链接降级为「文本（URL）」
     const plain = buildPlainText(r);
     expect(plain).toContain('官网原文 ↗（https://');

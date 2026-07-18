@@ -51,6 +51,9 @@ export function App(): React.JSX.Element {
   const startGenerate = (selection: Step1Selection): void => {
     if (!window.visapaw) return;
     setProgress({ phase: 'search' });
+    // 上一轮的瞬态错误不得带入新一次生成（Kimi PR#30 P2）
+    setExportError(null);
+    setRetryError(null);
     setRoute({ step: 2, selection });
     unsubRef.current?.();
     unsubRef.current = window.visapaw.onGenerateProgress((e) =>
