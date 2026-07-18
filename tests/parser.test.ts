@@ -106,6 +106,11 @@ describe('parseChecklist（合成 HTML 边界）', () => {
     expect(parseChecklist(html, 'Regular')[0].items.map((i) => i.text)).toEqual(['Real']);
   });
 
+  it('li 内嵌 p 不重复计数（CTO 自审防御）', () => {
+    const html = wrap(item('Nested p', '<ul><li><p>Only once</p></li></ul>'));
+    expect(parseChecklist(html, 'Regular')[0].items.map((i) => i.text)).toEqual(['Only once']);
+  });
+
   it('目标 div 缺失 → 抛错（结构异常）', () => {
     expect(() => parseChecklist('<html><body></body></html>', 'Regular')).toThrow(/Regular/);
   });

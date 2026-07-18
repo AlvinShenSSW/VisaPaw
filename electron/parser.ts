@@ -79,6 +79,8 @@ export function parseChecklist(html: string, type: ChecklistType): ChecklistSect
     const items: ChecklistItem[] = [];
     collapse.find('p, li').each((__, blockEl) => {
       const block = $(blockEl);
+      // li 内嵌 p 时只算外层 li 一条，防父子重复计数（快照为 0，防官网改版）
+      if (blockEl.tagName === 'p' && block.parents('li').length > 0) return;
       const text = blockText($, block);
       if (!text) return;
       // 链接归属：不含子列表内的链接（子 li 自带）
