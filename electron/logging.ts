@@ -54,17 +54,31 @@ export function createLogStore(dir: string, opts: LogStoreOptions = {}): LogStor
   }
 
   function writeRun(run: RunLog): void {
-    fs.mkdirSync(dir, { recursive: true });
-    const target = fileOf(run.summary.id);
-    const tmp = `${target}.tmp`;
-    fs.writeFileSync(tmp, JSON.stringify(run, null, 2), { mode: 0o600 });
-    fs.renameSync(tmp, target);
+    // 日志是尽力而为——磁盘满/权限等 IO 失败绝不能炸掉生成主流程（Kimi 终审 P2）
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+      const target = fileOf(run.summary.id);
+      const tmp = `${target}.tmp`;
+      fs.writeFileSync(tmp, JSON.stringify(run, null, 2), { mode: 0o600 });
+      fs.renameSync(tmp, target);
+    } catch (e) {
+      console.warn(`[visapaw] 日志写入失败（忽略）：${(e as Error).message}`);
+    }
   }
 
   function readRunFile(file: string): RunLog | null {
     try {
       const raw = JSON.parse(fs.readFileSync(path.join(dir, file), 'utf8')) as RunLog;
-      if (raw?.summary?.id && Array.isArray(raw.entries)) return raw;
+      const p = raw?.summary?.params;
+      if (
+        raw?.summary?.id &&
+        Array.isArray(raw.entries) &&
+        typeof p?.country === 'string' &&
+        typeof p?.cricosCode === 'string' &&
+        typeof p?.studentTypeCode === 'string'
+      ) {
+        return raw;
+      }
     } catch {
       /* 损坏文件跳过 */
     }
@@ -78,9 +92,14 @@ export function createLogStore(dir: string, opts: LogStoreOptions = {}): LogStor
       .sort((a, b) => b.summary.startedAt - a.summary.startedAt);
   }
 
-  function listRunFiles(): string[] {
+  function listRunFiles(includeTmp = false): string[] {
     try {
-      return fs.readdirSync(dir).filter((f) => f.startsWith('run-') && f.endsWith('.json'));
+      return fs
+        .readdirSync(dir)
+        .filter(
+          (f) =>
+            f.startsWith('run-') && (f.endsWith('.json') || (includeTmp && f.endsWith('.json.tmp')))
+        );
     } catch {
       return [];
     }
@@ -95,9 +114,9 @@ export function createLogStore(dir: string, opts: LogStoreOptions = {}): LogStor
         /* 已不存在则忽略 */
       }
     }
-    // 损坏文件对用户不可见也不可用——一并清除，避免磁盘残留（Codex 外门 P2）
+    // 损坏文件与中断遗留的 .tmp 对用户不可见也不可用——一并清除（Codex P2 / Kimi minor）
     const validIds = new Set(runs.map((r) => `${r.summary.id}.json`));
-    for (const f of listRunFiles()) {
+    for (const f of listRunFiles(true)) {
       if (!validIds.has(f)) {
         try {
           fs.rmSync(path.join(dir, f));
@@ -136,6 +155,16 @@ export function createLogStore(dir: string, opts: LogStoreOptions = {}): LogStor
           run.summary.status = status;
           run.summary.totalMs = now() - startedAt;
           if (extra?.checklistType) run.summary.checklistType = extra.checklistType;
+          // 导出文本要有明确的终态行（Kimi 终审 minor）
+          run.entries.push({
+            ts: now(),
+            level: status === 'success' ? 'ok' : 'err',
+            stage: status === 'success' ? '完成' : '失败',
+            message:
+              status === 'success'
+                ? `清单已生成 · 总耗时 ${(run.summary.totalMs / 1000).toFixed(1)}s`
+                : '生成失败——详见上方错误条目',
+          });
           writeRun(run);
         },
       };
@@ -166,8 +195,8 @@ export function createLogStore(dir: string, opts: LogStoreOptions = {}): LogStor
     },
 
     clear() {
-      // 枚举原始文件而非解析成功的运行——损坏文件也必须清除（Codex 外门 P2）
-      for (const f of listRunFiles()) {
+      // 枚举原始文件而非解析成功的运行——损坏文件与 .tmp 也必须清除（Codex P2 / Kimi minor）
+      for (const f of listRunFiles(true)) {
         try {
           fs.rmSync(path.join(dir, f));
         } catch {

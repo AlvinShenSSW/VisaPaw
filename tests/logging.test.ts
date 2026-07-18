@@ -24,7 +24,16 @@ describe('LogStore（按运行分组，本机持久化）', () => {
     expect(summary).toMatchObject({ status: 'success', checklistType: 'Streamlined', params: PARAMS });
     expect(summary.totalMs).toBeGreaterThan(0);
     const full = store.getRun(summary.id);
-    expect(full?.entries.map((e) => e.stage)).toEqual(['判定', '抓取', '解析', '分类', '备注', '翻译']);
+    expect(full?.entries.map((e) => e.stage)).toEqual([
+      '判定',
+      '抓取',
+      '解析',
+      '分类',
+      '备注',
+      '翻译',
+      '完成', // finish 落终态行（Kimi minor）
+    ]);
+    expect(full?.entries.at(-1)).toMatchObject({ level: 'ok', stage: '完成' });
     expect(full?.entries.every((e) => typeof e.ts === 'number')).toBe(true);
   });
 
@@ -61,9 +70,26 @@ describe('LogStore（按运行分组，本机持久化）', () => {
     store.startRun(PARAMS).finish('success');
     writeFileSync(join(dir, 'run-corrupt.json'), '{not json');
     expect(store.listRuns()).toHaveLength(1);
+    writeFileSync(join(dir, 'run-orphan.json.tmp'), 'partial');
     store.clear();
     expect(store.listRuns()).toHaveLength(0);
     expect(readdirSync(dir).filter((f) => f.startsWith('run-'))).toHaveLength(0);
+  });
+
+  it('缺 params 的半损坏文件被拒收（exportRun 不再解引用崩溃）；IO 失败不抛出', () => {
+    const dir = tmp();
+    const store = createLogStore(dir);
+    writeFileSync(
+      join(dir, 'run-half.json'),
+      JSON.stringify({ summary: { id: 'run-half', startedAt: 1, status: 'success' }, entries: [] })
+    );
+    expect(store.listRuns()).toHaveLength(0);
+    expect(store.exportRun('run-half')).toBeNull();
+    // 目录被占为普通文件 → 写入失败但不抛（日志尽力而为）
+    const blockedDir = join(tmp(), 'as-file');
+    writeFileSync(blockedDir, 'x');
+    const blocked = createLogStore(blockedDir);
+    expect(() => blocked.startRun(PARAMS).log('info', '判定', 'ok')).not.toThrow();
   });
 
   it('超过 maxRuns 淘汰最旧运行', () => {
