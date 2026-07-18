@@ -71,6 +71,26 @@ describe('JSON 可配置（新增规则不改代码）', () => {
     ).toThrow(/不合法/);
   });
 
+  it('自覆盖与覆盖环被配置期拒绝（Kimi 终审 P2）', () => {
+    expect(() =>
+      parseRules([{ id: 'X', trigger: { type: 'all' }, note: 'n', level: 'normal', overrides: ['X'] }])
+    ).toThrow(/覆盖自身/);
+    expect(() =>
+      parseRules([
+        { id: 'A', trigger: { type: 'all' }, note: 'a', level: 'normal', overrides: ['B'] },
+        { id: 'B', trigger: { type: 'all' }, note: 'b', level: 'normal', overrides: ['A'] },
+      ])
+    ).toThrow(/成环/);
+  });
+
+  it('DEFAULT_RULES 深度冻结（外部改写抛错，不污染后续调用）', () => {
+    expect(Object.isFrozen(DEFAULT_RULES)).toBe(true);
+    expect(Object.isFrozen(DEFAULT_RULES[0])).toBe(true);
+    expect(() => {
+      (DEFAULT_RULES[0] as { note: string }).note = '篡改';
+    }).toThrow();
+  });
+
   it('覆盖仅在覆盖者触发时生效：无 R3 关键词的条目 R2 保留', () => {
     const notes = annotateItem('Provide your birth certificate.');
     expect(notes.map((n) => n.ruleId)).toContain('R2');

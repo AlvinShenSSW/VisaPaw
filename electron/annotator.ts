@@ -24,6 +24,29 @@ const ruleSchema = z.object({
 
 const rulesSchema = z.array(ruleSchema).min(1);
 
+/** 自覆盖与覆盖环会静默吞掉合规备注——配置期拒绝（Kimi 终审 P2） */
+function assertNoOverrideCycles(rules: Array<z.infer<typeof ruleSchema>>): void {
+  const edges = new Map<string, string[]>(rules.map((r) => [r.id, r.overrides ?? []]));
+  for (const r of rules) {
+    if ((r.overrides ?? []).includes(r.id)) {
+      throw new Error(`备注规则配置不合法：规则 ${r.id} 覆盖自身`);
+    }
+  }
+  const visiting = new Set<string>();
+  const done = new Set<string>();
+  const walk = (id: string, path: string[]): void => {
+    if (done.has(id)) return;
+    if (visiting.has(id)) {
+      throw new Error(`备注规则配置不合法：覆盖关系成环（${[...path, id].join(' → ')}）`);
+    }
+    visiting.add(id);
+    for (const next of edges.get(id) ?? []) walk(next, [...path, id]);
+    visiting.delete(id);
+    done.add(id);
+  };
+  for (const r of rules) walk(r.id, []);
+}
+
 export type AnnotationRule = z.infer<typeof ruleSchema>;
 
 export interface AnnotationNote {
@@ -32,8 +55,17 @@ export interface AnnotationNote {
   level: 'normal' | 'warning';
 }
 
-/** 内置规则表（SPEC §6 文案逐字）——本身就是一份合法配置实例 */
-export const DEFAULT_RULES: readonly AnnotationRule[] = [
+/** 递归冻结——默认规则表被外部改写会污染全部后续调用（Kimi 终审 P2） */
+function deepFreeze<T>(value: T): T {
+  if (value && typeof value === 'object') {
+    for (const v of Object.values(value)) deepFreeze(v);
+    Object.freeze(value);
+  }
+  return value;
+}
+
+/** 内置规则表（SPEC §6 文案逐字）——本身就是一份合法配置实例，深度冻结 */
+export const DEFAULT_RULES: readonly AnnotationRule[] = deepFreeze([
   {
     id: 'R1',
     trigger: { type: 'all' },
@@ -57,7 +89,7 @@ export const DEFAULT_RULES: readonly AnnotationRule[] = [
     level: 'warning',
     overrides: ['R2'],
   },
-];
+]);
 
 /** JSON 配置 → 规则表（zod 校验，失败抛错并带路径）——新增规则不改代码 */
 export function parseRules(json: unknown): AnnotationRule[] {
@@ -65,13 +97,15 @@ export function parseRules(json: unknown): AnnotationRule[] {
   if (!result.success) {
     throw new Error(`备注规则配置不合法：${result.error.issues.map((i) => `${i.path.join('.')} ${i.message}`).join('；')}`);
   }
+  assertNoOverrideCycles(result.data);
   return result.data;
 }
 
 function triggered(rule: AnnotationRule, itemText: string): boolean {
   if (rule.trigger.type === 'all') return true;
-  const haystack = itemText.toLowerCase();
-  return rule.trigger.keywords.some((k) => haystack.includes(k.toLowerCase()));
+  // 固定 en locale——避免宿主区域设置（如土耳其语 İ/i）影响英文关键词匹配（Kimi 终审 minor）
+  const haystack = itemText.toLocaleLowerCase('en');
+  return rule.trigger.keywords.some((k) => haystack.includes(k.toLocaleLowerCase('en')));
 }
 
 /** 对单条材料注入备注：先算触发集，再应用覆盖，输出按规则表顺序 */
