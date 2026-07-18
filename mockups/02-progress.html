@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VisaPaw · Step 2 — 生成清单（SPEC §4 修订）</title>
+<style>
+  :root{
+    --accent:#2E9BDF; --accent-strong:#1E86C9; --accent-tint:#EAF5FD; --accent-border:#BFDFF5;
+    --desktop:#E9EDF2; --window:#F5F7FA; --card:#FFFFFF;
+    --text:#1D2733; --text-2:#5A6B7D; --text-3:#8A97A6;
+    --border:#E1E7EE; --border-2:#CBD5E0;
+    --ok:#2FA34D; --warn:#9A6B1F; --warn-bg:#FBF3E4; --warn-border:#EBD9B4;
+    --danger:#C94141; --danger-bg:#FBEDED;
+    --shadow:0 24px 64px rgba(31,45,61,.20),0 2px 8px rgba(31,45,61,.08);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --accent:#4FB0F0; --accent-strong:#6BBEF5; --accent-tint:#1C3A52; --accent-border:#2C5A7C;
+      --desktop:#17191D; --window:#232629; --card:#2C3034;
+      --text:#E9ECEF; --text-2:#A6B0BA; --text-3:#79838E;
+      --border:#3A3F45; --border-2:#4A5058;
+      --ok:#4EC46C; --warn:#D9A94E; --warn-bg:#3A3223; --warn-border:#5A4C2C;
+      --danger:#E06C6C; --danger-bg:#402A2A;
+      --shadow:0 24px 64px rgba(0,0,0,.55),0 2px 8px rgba(0,0,0,.4);
+    }
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    background:var(--desktop); color:var(--text);
+    min-height:100vh; padding:48px 24px 64px;
+    display:flex; flex-direction:column; align-items:center; gap:28px;
+    -webkit-font-smoothing:antialiased;
+  }
+  .page-note{font-size:12px;color:var(--text-3);}
+  .page-note a{color:var(--accent);text-decoration:none;}
+  .variant-label{width:100%;max-width:640px;font-size:13px;font-weight:700;color:var(--text-2);letter-spacing:.02em;}
+  .variant-label small{font-weight:400;color:var(--text-3);margin-left:8px;}
+
+  .window{
+    width:100%;max-width:640px;background:var(--window);
+    border-radius:12px;box-shadow:var(--shadow);
+    border:1px solid rgba(0,0,0,.08);overflow:hidden;
+  }
+  @media (prefers-color-scheme: dark){ .window{border-color:rgba(255,255,255,.10);} }
+  .titlebar{
+    height:46px;display:flex;align-items:center;padding:0 16px;position:relative;
+    border-bottom:1px solid var(--border);
+  }
+  .traffic{display:flex;gap:8px;}
+  .traffic span{width:12px;height:12px;border-radius:50%;display:block;box-shadow:inset 0 0 0 .5px rgba(0,0,0,.15);}
+  .t-close{background:#FF5F57;} .t-min{background:#FEBC2E;} .t-max{background:#28C840;}
+  .titlebar .title{position:absolute;left:50%;transform:translateX(-50%);font-size:13px;font-weight:600;color:var(--text-2);}
+
+  .content{padding:26px 40px 34px;}
+
+  /* stepper */
+  .stepper{display:flex;align-items:center;gap:10px;margin-bottom:30px;}
+  .sstep{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--text-3);}
+  .sstep .n{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:700;border:1.5px solid var(--border-2);background:var(--card);color:var(--text-3);}
+  .sstep.current{color:var(--text);font-weight:600;}
+  .sstep.current .n{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .sstep.done{color:var(--text-2);}
+  .sstep.done .n{background:var(--accent-tint);border-color:var(--accent-border);color:var(--accent-strong);}
+  .sline{flex:1;height:1.5px;background:var(--border-2);max-width:56px;}
+  .sline.done{background:var(--accent-border);}
+
+  /* centered generating state */
+  .stage{text-align:center;padding:6px 0 4px;}
+  .spinner-big{
+    width:52px;height:52px;border-radius:50%;margin:0 auto 18px;
+    border:4px solid var(--accent-tint);border-top-color:var(--accent);
+    animation:spin 1s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .stage h2{font-size:16.5px;font-weight:700;}
+  .stage .sub{margin-top:7px;font-size:13px;color:var(--text-2);line-height:1.6;}
+  .stage .params{
+    margin:16px auto 0;display:inline-flex;flex-wrap:wrap;justify-content:center;gap:7px;
+  }
+  .chip{
+    font-size:12px;color:var(--text-2);background:var(--card);
+    border:1px solid var(--border);border-radius:999px;padding:4px 12px;
+  }
+  .chip b{color:var(--text);font-weight:600;}
+
+  .phases{margin:26px auto 0;max-width:400px;display:flex;flex-direction:column;gap:9px;text-align:left;}
+  .phase{
+    display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text-2);
+    background:var(--card);border:1px solid var(--border);border-radius:9px;padding:10px 13px;
+  }
+  .phase .ic{flex:none;width:18px;text-align:center;}
+  .phase.done .ic{color:var(--ok);}
+  .phase.active{border-color:var(--accent-border);background:var(--accent-tint);color:var(--text);}
+  .phase.pending{color:var(--text-3);border-style:dashed;}
+  .phase .right{margin-left:auto;font-size:11.5px;color:var(--text-3);font-variant-numeric:tabular-nums;}
+  .mini-spin{width:12px;height:12px;border-radius:50%;border:2px solid var(--accent-tint);border-top-color:var(--accent);animation:spin 1s linear infinite;display:inline-block;}
+  .provider-tag{
+    display:inline-flex;align-items:center;font-size:11px;font-weight:600;
+    border-radius:5px;padding:1.5px 7px;margin-left:7px;
+    background:var(--card);color:var(--accent-strong);border:1px solid var(--accent-border);
+  }
+  .bar{height:4px;border-radius:2px;background:var(--border);overflow:hidden;margin-top:7px;}
+  .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-strong));border-radius:2px;}
+
+  .fallback-note{
+    margin:18px auto 0;max-width:400px;display:flex;gap:9px;align-items:flex-start;text-align:left;
+    background:var(--warn-bg);border:1px solid var(--warn-border);border-radius:9px;
+    padding:10px 12px;font-size:12.5px;color:var(--warn);line-height:1.6;
+  }
+
+  .footer-actions{
+    margin-top:28px;padding-top:16px;border-top:1px solid var(--border);
+    display:flex;align-items:center;font-size:12px;color:var(--text-3);
+  }
+  .footer-actions .log-link{color:var(--accent);text-decoration:none;}
+  .btn-ghost{
+    margin-left:auto;height:32px;padding:0 16px;border-radius:8px;font-size:13px;font-family:inherit;
+    border:1px solid var(--border-2);background:var(--card);color:var(--text-2);cursor:pointer;
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ 状态 A：搜索官网清单中 ============ -->
+<div class="variant-label">状态 A · 正在搜索官网 Document Checklist Tool</div>
+<div class="window">
+  <div class="titlebar">
+    <div class="traffic"><span class="t-close"></span><span class="t-min"></span><span class="t-max"></span></div>
+    <div class="title">🐾 VisaPaw — 生成清单</div>
+  </div>
+  <div class="content">
+    <div class="stepper">
+      <div class="sstep done"><span class="n">✓</span>填写申请信息</div>
+      <div class="sline done"></div>
+      <div class="sstep current"><span class="n">2</span>生成清单</div>
+      <div class="sline"></div>
+      <div class="sstep"><span class="n">3</span>查看结果</div>
+    </div>
+
+    <div class="stage">
+      <div class="spinner-big"></div>
+      <h2>正在搜索 Document Checklist Tool…</h2>
+      <div class="sub">根据您的三项选择向移民局官网实时检索材料清单（本机直连）</div>
+      <div class="params">
+        <span class="chip">护照国籍 <b>China（CHN）</b></span>
+        <span class="chip">院校 <b>The University of Melbourne（00116K）</b></span>
+        <span class="chip">学生类型 <b>普通学生（01）</b></span>
+      </div>
+
+      <div class="phases">
+        <div class="phase active"><span class="ic"><span class="mini-spin"></span></span>搜索官网材料清单<span class="right">判定 + 抓取 + 解析</span></div>
+        <div class="phase pending"><span class="ic">◦</span>翻译成中文（中英双语对照）<span class="right">等待中</span></div>
+      </div>
+    </div>
+
+    <div class="footer-actions">
+      <span>详细执行过程记录于 <a class="log-link" href="04-settings.html">设置 → 日志</a></span>
+      <button class="btn-ghost">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 状态 B：翻译中（含 fallback 提示） ============ -->
+<div class="variant-label" style="margin-top:14px;">状态 B · 清单已取得，翻译中<small>标注当前 provider；MiMo 额度耗尽已自动切换</small></div>
+<div class="window">
+  <div class="titlebar">
+    <div class="traffic"><span class="t-close"></span><span class="t-min"></span><span class="t-max"></span></div>
+    <div class="title">🐾 VisaPaw — 生成清单</div>
+  </div>
+  <div class="content">
+    <div class="stepper">
+      <div class="sstep done"><span class="n">✓</span>填写申请信息</div>
+      <div class="sline done"></div>
+      <div class="sstep current"><span class="n">2</span>生成清单</div>
+      <div class="sline"></div>
+      <div class="sstep"><span class="n">3</span>查看结果</div>
+    </div>
+
+    <div class="stage">
+      <div class="spinner-big"></div>
+      <h2>正在翻译成中文…<span class="provider-tag">Claude · claude-opus-4-8</span></h2>
+      <div class="sub">已取得 Streamlined 清单（12 章节 · 34 条），正在生成中英双语对照</div>
+
+      <div class="phases">
+        <div class="phase done"><span class="ic">✓</span>搜索官网材料清单<span class="right">Streamlined · 3.5s</span></div>
+        <div class="phase active">
+          <span class="ic"><span class="mini-spin"></span></span>
+          <span style="flex:1;">翻译成中文（中英双语对照）
+            <div class="bar"><i style="width:62%;"></i></div>
+          </span>
+          <span class="right">21 / 34 条</span>
+        </div>
+      </div>
+
+      <div class="fallback-note">
+        <span>⚠️</span>
+        <span><b>MiMo 套餐额度已用尽</b>，已按 fallback 顺序自动切换至 <b>Claude · claude-opus-4-8</b>。结果元信息将记录实际使用的 provider，详情见 设置 → 日志。</span>
+      </div>
+    </div>
+
+    <div class="footer-actions">
+      <span>详细执行过程记录于 <a class="log-link" href="04-settings.html">设置 → 日志</a></span>
+      <button class="btn-ghost">取消</button>
+    </div>
+  </div>
+</div>
+
+<div class="page-note">Step 2 / 3 · 对应 SPEC §4 主流程（修订：进度合并为「搜索 + 翻译」两阶段，细粒度过程移入 设置 → 日志）· <a href="index.html">← 返回导航页</a></div>
+
+</body>
+</html>

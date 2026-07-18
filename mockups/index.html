@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VisaPaw · UI/UX Mockup 导航</title>
+<style>
+  :root{
+    --accent:#2E9BDF; --accent-strong:#1E86C9; --accent-tint:#EAF5FD; --accent-border:#BFDFF5;
+    --desktop:#E9EDF2; --window:#F5F7FA; --card:#FFFFFF;
+    --text:#1D2733; --text-2:#5A6B7D; --text-3:#8A97A6;
+    --border:#E1E7EE; --border-2:#CBD5E0;
+    --warn:#9A6B1F; --warn-bg:#FBF3E4; --warn-border:#EBD9B4;
+    --danger:#B23B3B; --danger-bg:#FBEDED;
+    --shadow:0 18px 48px rgba(31,45,61,.14),0 2px 8px rgba(31,45,61,.06);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --accent:#4FB0F0; --accent-strong:#6BBEF5; --accent-tint:#1C3A52; --accent-border:#2C5A7C;
+      --desktop:#17191D; --window:#232629; --card:#2C3034;
+      --text:#E9ECEF; --text-2:#A6B0BA; --text-3:#79838E;
+      --border:#3A3F45; --border-2:#4A5058;
+      --warn:#D9A94E; --warn-bg:#3A3223; --warn-border:#5A4C2C;
+      --danger:#E06C6C; --danger-bg:#402A2A;
+      --shadow:0 18px 48px rgba(0,0,0,.5),0 2px 8px rgba(0,0,0,.35);
+    }
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    background:var(--desktop); color:var(--text);
+    min-height:100vh; padding:56px 24px 72px;
+    display:flex; justify-content:center;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{width:100%;max-width:840px;}
+  .hero{margin-bottom:34px;}
+  .hero .logo{font-size:34px;}
+  .hero h1{font-size:26px;font-weight:800;margin-top:8px;letter-spacing:.01em;}
+  .hero h1 span{color:var(--accent);}
+  .hero p{margin-top:9px;font-size:14px;color:var(--text-2);line-height:1.7;max-width:640px;}
+  .hero .tags{margin-top:14px;display:flex;flex-wrap:wrap;gap:8px;}
+  .tag{
+    font-size:12px;color:var(--text-2);background:var(--card);
+    border:1px solid var(--border);border-radius:999px;padding:4px 12px;
+  }
+  .tag b{color:var(--accent-strong);font-weight:600;}
+
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:40px;}
+  @media (max-width:640px){.grid{grid-template-columns:1fr;}}
+  a.card{
+    display:block;background:var(--card);border:1px solid var(--border);
+    border-radius:13px;padding:20px 22px;text-decoration:none;color:inherit;
+    box-shadow:var(--shadow);transition:transform .15s,border-color .15s;
+    position:relative;
+  }
+  a.card:hover{transform:translateY(-3px);border-color:var(--accent);}
+  a.card.core{grid-column:1 / -1;border-color:var(--accent-border);background:linear-gradient(135deg,var(--accent-tint),var(--card) 55%);}
+  .card .no{
+    position:absolute;top:18px;right:20px;font-size:12px;font-weight:700;
+    color:var(--accent-strong);background:var(--accent-tint);
+    border:1px solid var(--accent-border);border-radius:7px;padding:3px 9px;
+  }
+  .card h2{font-size:16px;font-weight:700;display:flex;align-items:center;gap:9px;}
+  .card .spec{margin-top:5px;font-size:11.5px;color:var(--accent-strong);font-weight:600;letter-spacing:.03em;}
+  .card p{margin-top:8px;font-size:13px;color:var(--text-2);line-height:1.65;}
+  .card .states{margin-top:11px;display:flex;flex-wrap:wrap;gap:6px;}
+  .st{font-size:11px;color:var(--text-3);border:1px solid var(--border);border-radius:5px;padding:2px 7px;background:var(--window);}
+
+  .notes{
+    background:var(--card);border:1px solid var(--border);border-radius:13px;
+    padding:26px 30px;box-shadow:var(--shadow);
+  }
+  .notes h2{font-size:17px;font-weight:800;margin-bottom:16px;}
+  .notes h3{font-size:13.5px;font-weight:700;margin:18px 0 7px;color:var(--accent-strong);}
+  .notes p{font-size:13px;color:var(--text-2);line-height:1.8;}
+  .notes .sw{display:inline-block;width:11px;height:11px;border-radius:3px;vertical-align:-1px;margin:0 4px 0 2px;border:1px solid rgba(0,0,0,.12);}
+  .footer{margin-top:26px;font-size:11.5px;color:var(--text-3);line-height:1.7;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="hero">
+    <div class="logo">🐾</div>
+    <h1>VisaPaw <span>UI/UX Mockup</span></h1>
+    <p>Mac 桌面 App（Electron + React）：三步向导——① 选择护照国籍 / 意向院校 / 学生类型 → ② 检索官网 Document Checklist Tool 并翻译成中文 → ③ 查看中英双语对照结果。细粒度执行过程以日志形式沉淀在设置页。以下为 Iteration 1 全部界面与状态的高保真静态 Mockup，双击浏览器即可查看，零外部依赖。</p>
+    <div class="tags">
+      <span class="tag">流程 <b>三步向导</b></span>
+      <span class="tag">配色 <b>天蓝 / 浅灰 / 白</b></span>
+      <span class="tag">macOS 窗口质感</span>
+      <span class="tag">浅色 / 深色模式（跟随系统 prefers-color-scheme）</span>
+      <span class="tag">依据 docs/SPEC.md v0.2 + AGENTS.md（含 §4 流程修订）</span>
+    </div>
+  </div>
+
+  <div class="grid">
+    <a class="card" href="01-input-form.html">
+      <span class="no">01 · Step 1</span>
+      <h2>📝 填写申请信息</h2>
+      <div class="spec">SPEC §4 主流程 · 修订：仅官网工具三字段</div>
+      <p>与官网 Document Checklist Tool 一一对应的三个选项：护照国籍（本地模糊搜索下拉，绘制展开态）、意向院校（搜索 / CRICOS 码 / 未定）、学生类型（默认普通学生）。姓名字段已移除，不采集任何个人信息。</p>
+      <div class="states"><span class="st">三步向导指示器</span><span class="st">国籍下拉展开态</span><span class="st">院校已选 chip</span></div>
+    </a>
+
+    <a class="card" href="02-progress.html">
+      <span class="no">02 · Step 2</span>
+      <h2>⏳ 生成清单（轻量视图）</h2>
+      <div class="spec">SPEC §4 修订 · §8 fallback</div>
+      <p>面向用户只呈现两个阶段：搜索官网材料清单 → 翻译成中文（标注当前 provider）。细粒度步骤不再在此展开，改为记录到 设置 → 日志。</p>
+      <div class="states"><span class="st">状态 A 搜索官网中</span><span class="st">状态 B 翻译中 + MiMo 额度耗尽切 Claude</span></div>
+    </a>
+
+    <a class="card core" href="03-result.html">
+      <span class="no">03 · Step 3 · 核心页</span>
+      <h2>📋 结果视图 — 中英双语清单</h2>
+      <div class="spec">SPEC §5 分类 · §6 备注规则 · §7 标题与文档结构</div>
+      <p>标题 + 元信息（Streamlined 徽章 / 数据来源 / 抓取时间 / 实际 provider），七大中文分类分组；每条中文为主、英文原文可展开；普通备注与 R3 公证翻译警告分层；含「自动归类」标注条目；底部固定免责声明与导出操作区（Markdown / PDF / 剪贴板）。</p>
+      <div class="states"><span class="st">Streamlined 徽章</span><span class="st">英文原文展开/收起（全局开关）</span><span class="st">R3 ⚠️ 警告备注</span><span class="st">✦ 自动归类标注</span><span class="st">CoE / OSHC / GS 术语括注</span></div>
+    </a>
+
+    <a class="card" href="04-settings.html">
+      <span class="no">04</span>
+      <h2>⚙️ 设置 — AI Provider 管理 + 日志</h2>
+      <div class="spec">SPEC §8 AI Provider 层 · §4 修订（日志）</div>
+      <p>Claude / ChatGPT / MiMo 三卡片：API key、启用开关、模型选择；拖拽手柄 + 顺序编号决定 fallback 顺序；Keychain 安全提示与 MiMo Token Plan 套餐标注。新增「日志」标签页，逐条记录每次生成的判定 / 抓取 / 解析 / 分类 / 备注 / 翻译与 fallback 事件。</p>
+      <div class="states"><span class="st">拖拽排序</span><span class="st">MiMo 额度耗尽 pill</span><span class="st">未启用态</span><span class="st">📜 日志标签页</span></div>
+    </a>
+
+    <a class="card" href="05-errors.html">
+      <span class="no">05</span>
+      <h2>🚧 异常与降级状态</h2>
+      <div class="spec">SPEC §4 异常流程 · §9 可降级 · AGENTS.md 健壮性约定</div>
+      <p>四个面板：网络失败（可重试）、官网 403（文案与网络失败分开）、结构指纹校验失败 → 内嵌 WebView 手动模式 + 更新提示条、所有 provider 翻译失败 → 保留英文清单 + 局部重试翻译。</p>
+      <div class="states"><span class="st">NET_TIMEOUT</span><span class="st">HTTP 403</span><span class="st">WebView 降级</span><span class="st">翻译不可用</span></div>
+    </a>
+  </div>
+
+  <div class="notes">
+    <h2>设计说明</h2>
+
+    <h3>流程修订（相对 SPEC v0.2 的 Spec Review 结论）</h3>
+    <p>① Step 1 收敛为官网工具的三个原生字段（Country of passport / Education provider / Student type），移除姓名字段——文档标题相应不再含姓名，隐私面进一步收紧（App 全程不采集个人信息，SPEC §7 标题格式与 §9 隐私条款需同步更新）；② 原「生成进度视图」降为轻量的 Step 2：用户只看到「搜索官网清单 → 翻译成中文」两个阶段与当前 provider / fallback 提示；③ 判定、抓取、解析、分类、备注注入等细粒度过程改为写入 设置 → 日志，供排障与中介顾问审计，不再打断主流程。免责声明、抓取时间、清单类型三要素不受影响，仍在一切结果展示中保留。</p>
+
+    <h3>配色</h3>
+    <p>严格限定在天蓝、浅灰、白三色系：桌面底 <span class="sw" style="background:#E9EDF2;"></span>#E9EDF2、窗口 <span class="sw" style="background:#F5F7FA;"></span>#F5F7FA、卡片纯白 <span class="sw" style="background:#FFF;"></span>#FFFFFF，天蓝 <span class="sw" style="background:#2E9BDF;"></span>#2E9BDF（深色模式提亮为 <span class="sw" style="background:#4FB0F0;"></span>#4FB0F0）只用于「可交互 / 当前进行 / 官方术语」三种语义，保持工具型应用的克制。此外仅保留两个功能色：琥珀色用于降级与配额告警，红色仅用于 R3 公证翻译警告与错误——签证材料是严肃输出，警示色出现得越少，出现时越有分量。深浅两套色板通过 CSS 变量 + prefers-color-scheme 切换，无 JS 参与。</p>
+
+    <h3>字体层级</h3>
+    <p>系统字体栈 -apple-system / PingFang SC，正文 13–14.5px、辅助信息 11–12.5px，标题不超过 21px；数字（耗时、CRICOS 码）用 tabular-nums 对齐。层级主要靠字重（400/600/700）与灰度（三级文字色）表达，而非字号跳跃，维持 macOS 原生密度。</p>
+
+    <h3>双语对照方案的取舍</h3>
+    <p>核心决策是「中文为主、英文按需」的两层结构，而非左右分栏：分栏会把每条材料压成两列窄栏，中文可读性受损，且英文原文长短不一会造成大量空白。最终方案为——中文译文作为条目主行；官方术语在主行内以蓝色括注保留英文（CoE、OSHC、GS、Form 956），因为这些词用户在官网和申请系统里终究要面对英文；完整英文原文折叠在每条目下方的「英文原文」展开层（左侧蓝边引用样式，附官网原文链接），支持逐条展开与标题栏「展开全部英文」全局开关，兼顾中介顾问核对原文与普通申请人快速通读两种场景。备注体系与翻译层视觉分离：普通备注（R1/R2）为灰底小签，R3 公证翻译警告为红色系高对比条，确定性规则产出的固定文案不与 AI 译文混排。</p>
+
+    <h3>红线自查（AGENTS.md §5）</h3>
+    <p>所有结果类界面（03 结果视图、05 状态 D 未翻译降级视图）均完整保留三要素：抓取时间、清单类型徽章（Regular / Streamlined / Undetermined）、底部固定免责声明；元信息同时记录实际使用的 AI provider 与模型。</p>
+
+    <div class="footer">VisaPaw Mockup · 依据 docs/SPEC.md v0.2（2026-07-19）与 AGENTS.md 生成 · 纯静态 HTML + 内联 CSS（仅 03 页含少量内联 JS 做展开交互）· 示例数据基于 SPEC §3 官网实测章节名构造，非真实抓取结果</div>
+  </div>
+
+</div>
+</body>
+</html>
