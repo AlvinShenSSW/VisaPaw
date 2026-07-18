@@ -74,7 +74,10 @@ const TERM_SETS: Record<TermKind, string> = {
 
 const CHECKLIST_TYPES: readonly string[] = ['Regular', 'Streamlined', 'Undetermined'];
 
-const FINGERPRINT_DIVS = ['id="Regular"', 'id="Streamlined"', 'id="Undetermined"'] as const;
+// 官网实际标签形态：`<div class="accordion" id="Regular" …>`（fixture 实测，id 前有其他属性）——
+// 属性感知匹配而非裸子串，避免 JS 字符串/无关属性误命中（Kimi 终审 P2）
+const FINGERPRINT_DIV_IDS = ['Regular', 'Streamlined', 'Undetermined'] as const;
+const fingerprintPattern = (id: string): RegExp => new RegExp(`<div[^>]*\\bid="${id}"`);
 
 interface TermsCacheFile {
   fetchedAt: number;
@@ -82,13 +85,15 @@ interface TermsCacheFile {
 }
 
 function verifyStructure(html: string): boolean {
-  return FINGERPRINT_DIVS.every((marker) => html.includes(marker));
+  return FINGERPRINT_DIV_IDS.every((id) => fingerprintPattern(id).test(html));
 }
 
 export function createFetcher(deps: FetcherDeps): Fetcher {
   const fetchImpl = deps.fetchImpl ?? fetch;
   const now = deps.now ?? Date.now;
   const timeoutMs = deps.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  // 并发同 kind 请求合流——防缓存竞态与重复官网请求（Kimi 终审 P2）
+  const inFlightTerms = new Map<TermKind, Promise<TermItem[]>>();
 
   async function request(pathname: string, init: RequestInit): Promise<Response> {
     let res: Response;
@@ -167,28 +172,39 @@ export function createFetcher(deps: FetcherDeps): Fetcher {
     async fetchTerms(kind) {
       const cached = readTermsCache(kind);
       if (cached) return cached;
-      const payload = await postJson('/_layouts/15/api/Termstore.aspx/GetTermsByProperty', {
-        groupName: 'IMMI',
-        termSetName: TERM_SETS[kind],
-        propertyName: 'Code',
-      });
-      const data = unwrapEnvelope(payload, 'Termstore');
-      // 两个 term set 均应为全量列表——空结果视为结构异常，绝不写缓存（Codex 外门 P2）
-      if (data.length === 0) {
-        throw new FetchError('structure', `Termstore（${TERM_SETS[kind]}）返回空列表——官网可能已改版`);
-      }
-      const items: TermItem[] = data.map((row) => {
-        const r = row as { Key?: unknown; Value?: unknown };
-        if (typeof r.Key !== 'string' || typeof r.Value !== 'string') {
-          throw new FetchError('structure', 'Termstore 条目缺少 Key/Value 字段——官网可能已改版');
+      const inFlight = inFlightTerms.get(kind);
+      if (inFlight) return inFlight;
+      const task = (async () => {
+        const payload = await postJson('/_layouts/15/api/Termstore.aspx/GetTermsByProperty', {
+          groupName: 'IMMI',
+          termSetName: TERM_SETS[kind],
+          propertyName: 'Code',
+        });
+        const data = unwrapEnvelope(payload, 'Termstore');
+        // 两个 term set 均应为全量列表——空结果视为结构异常，绝不写缓存（Codex 外门 P2）
+        if (data.length === 0) {
+          throw new FetchError('structure', `Termstore（${TERM_SETS[kind]}）返回空列表——官网可能已改版`);
         }
-        return { key: r.Key, value: r.Value };
-      });
-      fs.mkdirSync(deps.cacheDir, { recursive: true });
-      const tmp = `${cacheFile(kind)}.tmp`;
-      fs.writeFileSync(tmp, JSON.stringify({ fetchedAt: now(), items } satisfies TermsCacheFile));
-      fs.renameSync(tmp, cacheFile(kind));
-      return items;
+        const items: TermItem[] = data.map((row) => {
+          const r = row as { Key?: unknown; Value?: unknown };
+          if (typeof r.Key !== 'string' || typeof r.Value !== 'string') {
+            throw new FetchError('structure', 'Termstore 条目缺少 Key/Value 字段——官网可能已改版');
+          }
+          return { key: r.Key, value: r.Value };
+        });
+        fs.mkdirSync(deps.cacheDir, { recursive: true });
+        const tmp = `${cacheFile(kind)}.tmp`;
+        fs.writeFileSync(tmp, JSON.stringify({ fetchedAt: now(), items } satisfies TermsCacheFile));
+        fs.renameSync(tmp, cacheFile(kind));
+        fs.chmodSync(cacheFile(kind), 0o600);
+        return items;
+      })();
+      inFlightTerms.set(kind, task);
+      try {
+        return await task;
+      } finally {
+        inFlightTerms.delete(kind);
+      }
     },
 
     async fetchChecklistType(params) {

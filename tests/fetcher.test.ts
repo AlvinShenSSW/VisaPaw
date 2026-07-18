@@ -46,6 +46,15 @@ describe('fetchTerms（Termstore + 7 天缓存）', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(3);
   });
 
+  it('并发同 kind 调用合流为一次请求（Kimi 终审 P2）', async () => {
+    const fetchImpl = vi.fn().mockImplementation(() => Promise.resolve(ok(countriesJson)));
+    const f = createFetcher({ cacheDir: tmp(), fetchImpl });
+    const [a, b] = await Promise.all([f.fetchTerms('countries'), f.fetchTerms('countries')]);
+    expect(a.length).toBe(237);
+    expect(b.length).toBe(237);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
   it('Termstore 空列表 → structure 错误且不写缓存（Codex 外门 P2）', async () => {
     const fetchImpl = vi
       .fn()
