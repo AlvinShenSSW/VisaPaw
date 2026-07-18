@@ -175,7 +175,23 @@ describe('降级态导出（翻译失败仍完整）', () => {
     expect(md).toContain('暂不可用');
     expect(md).toContain('免责声明');
     expect(md).not.toContain('【中文】');
-    // 无译文时不再输出英文原文引用行（主行即英文）
-    expect(md).not.toContain('   > ');
+    // 无译文时主行即英文，但官网原文链接仍保留（Codex PR#30 P2）
+    expect(md).toContain('[官网原文 ↗](');
+  });
+
+  it('两位数编号的续行缩进与编号宽度一致（Codex PR#30 P2）；链接保留', async () => {
+    const r = await result();
+    const md = buildMarkdown(r);
+    // 第 10 条之后的引用行必须是 4 空格缩进（"10. " 宽度）
+    if (md.includes('10. ')) {
+      const after10 = md.slice(md.indexOf('\n10. '));
+      const firstQuote = after10.split('\n').find((l) => l.trimStart().startsWith('>'));
+      if (firstQuote) expect(firstQuote.startsWith('    >')).toBe(true);
+    }
+    expect(md).toContain('[官网原文 ↗](https://immi.homeaffairs.gov.au/visas/web-evidentiary-tool');
+    // 纯文本中链接降级为「文本（URL）」
+    const plain = buildPlainText(r);
+    expect(plain).toContain('官网原文 ↗（https://');
+    expect(plain).not.toContain('](');
   });
 });

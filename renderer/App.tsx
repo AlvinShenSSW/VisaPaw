@@ -26,6 +26,7 @@ export function App(): React.JSX.Element {
   const [enAllOpen, setEnAllOpen] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [settingsTab, setSettingsTab] = useState<'provider' | 'logs'>('provider');
   const unsubRef = useRef<(() => void) | null>(null);
@@ -163,13 +164,19 @@ export function App(): React.JSX.Element {
         <Step3
           result={route.result}
           allOpen={enAllOpen}
+          exportError={exportError}
           onExport={(kind) => {
+            setExportError(null);
             window.visapaw
               ?.exportResult(kind, route.result)
               .then((r) => {
-                if (!r.ok && r.message !== '已取消') console.warn(`导出失败：${r.message}`);
+                if (!mountedRef.current) return;
+                // 失败必须用户可见（Codex PR#30 P2）；用户取消不算失败
+                if (!r.ok && r.message !== '已取消') setExportError(r.message);
               })
-              .catch(() => undefined);
+              .catch((e: Error) => {
+                if (mountedRef.current) setExportError(e.message);
+              });
           }}
           retryingTranslation={retrying}
           retryError={retryError}

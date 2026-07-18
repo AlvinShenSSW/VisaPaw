@@ -32,6 +32,17 @@ function sourceLine(result: GenerateResult): string {
 
 const ensurePeriod = (t: string): string => (/[。.!？?]$/.test(t) ? t : `${t}。`);
 
+/** 与 Step3 相同的原文链接回退：条目首链 → 清单页锚点（Codex PR#30 P2） */
+function itemSourceUrl(row: {
+  item: { links: Array<{ href: string }> };
+  anchorId: string | null;
+}): string {
+  return (
+    row.item.links[0]?.href ??
+    `https://immi.homeaffairs.gov.au/visas/web-evidentiary-tool${row.anchorId ? `#${row.anchorId}` : ''}`
+  );
+}
+
 /** Markdown（SPEC §7 文档结构） */
 export function buildMarkdown(result: GenerateResult): string {
   const lines: string[] = [
@@ -50,18 +61,26 @@ export function buildMarkdown(result: GenerateResult): string {
         row.autoClassified ? '〔✦ 自动归类〕' : '',
         row.pendingManual ? '〔◌ 待人工归类〕' : '',
       ].join('');
+      // 续行缩进随编号宽度自适应——两位数编号下固定 3 空格会破坏列表结构（Codex PR#30 P2）
+      const pad = ' '.repeat(String(row.no).length + 2);
       lines.push(`${row.no}. ${main}${tags}`);
+      const src = itemSourceUrl(row);
       if (row.item.zh !== undefined) {
-        lines.push(`   > ${row.sectionName} — ${row.item.en}`);
+        lines.push(`${pad}> ${row.sectionName} — ${row.item.en}${src ? ` [官网原文 ↗](${src})` : ''}`);
+      } else if (src) {
+        lines.push(`${pad}> [官网原文 ↗](${src})`);
+      }
+      for (const link of row.item.links) {
+        lines.push(`${pad}- 链接：[${link.text}](${link.href})`);
       }
       for (const n of row.item.notes) {
-        lines.push(`   - ${n.level === 'warning' ? '⚠️ ' : ''}备注：${ensurePeriod(n.note.replace(/^⚠️\s*/, ''))}`);
+        lines.push(`${pad}- ${n.level === 'warning' ? '⚠️ ' : ''}备注：${ensurePeriod(n.note.replace(/^⚠️\s*/, ''))}`);
       }
       if (row.autoClassified) {
-        lines.push(`   - 备注：本条为官网新增章节，由 AI 兜底归入「${row.autoCategory}」，请人工复核；映射表待更新。`);
+        lines.push(`${pad}- 备注：本条为官网新增章节，由 AI 兜底归入「${row.autoCategory}」，请人工复核；映射表待更新。`);
       }
       if (row.pendingManual) {
-        lines.push('   - 备注：AI 兜底不可用，本章节暂归入「待人工归类」，请人工确认所属分类。');
+        lines.push(`${pad}- 备注：AI 兜底不可用，本章节暂归入「待人工归类」，请人工确认所属分类。`);
       }
       lines.push('');
     }
@@ -75,7 +94,8 @@ export function buildPlainText(result: GenerateResult): string {
   return buildMarkdown(result)
     .replace(/^# /gm, '')
     .replace(/^## /gm, '')
-    .replace(/^   > /gm, '   英文原文：')
+    .replace(/^(\s*)> /gm, '$1英文原文：')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1（$2）')
     .replace(/^---$/gm, '——————————');
 }
 
@@ -97,7 +117,7 @@ export function buildPrintHtml(result: GenerateResult): string {
       <div class="line"><span class="no">${row.no}.</span><span class="zh">${esc(row.item.zh ?? row.item.en)}${
         row.autoClassified ? '<span class="tag">✦ 自动归类</span>' : ''
       }${row.pendingManual ? '<span class="tag">◌ 待人工归类</span>' : ''}</span></div>
-      ${row.item.zh !== undefined ? `<div class="en-text">${esc(row.sectionName)} — ${esc(row.item.en)}</div>` : ''}
+      ${row.item.zh !== undefined ? `<div class="en-text">${esc(row.sectionName)} — ${esc(row.item.en)} <a href="${esc(itemSourceUrl(row))}">官网原文 ↗</a></div>` : ''}
       ${row.item.notes
         .map((n) =>
           n.level === 'warning'
