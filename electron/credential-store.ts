@@ -9,6 +9,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { PROVIDER_IDS, type ProviderId } from './settings-store.ts';
 
+const assertProviderId: (v: unknown) => asserts v is ProviderId = (v) => {
+  if (!(PROVIDER_IDS as readonly string[]).includes(v as string)) {
+    throw new Error(`未知 provider：${String(v)}`);
+  }
+};
+
 export interface SafeCrypto {
   isAvailable(): boolean;
   encrypt(plain: string): Buffer;
@@ -63,15 +69,18 @@ export function createCredentialStore(filePath: string, crypto: SafeCrypto): Cre
   }
   return {
     setKey(provider, key) {
+      assertProviderId(provider);
       if (typeof key !== 'string' || key.trim() === '') {
         throw new Error('API key 不能为空');
       }
       write({ ...read(), [provider]: key.trim() });
     },
     getKey(provider) {
+      assertProviderId(provider);
       return read()[provider] ?? null;
     },
     deleteKey(provider) {
+      assertProviderId(provider);
       const vault = read();
       delete vault[provider];
       write(vault);

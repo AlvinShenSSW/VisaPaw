@@ -49,6 +49,15 @@ describe('createCredentialStore（按 provider 命名空间）', () => {
     expect(store.getStatus().openai.saved).toBe(false);
   });
 
+  it('未知 provider id 被拒绝（IPC 面防御，CTO 自审）', () => {
+    const f = join(dir, 'badid.bin');
+    const store = createCredentialStore(f, fakeCrypto);
+    // @ts-expect-error 故意传入非法 id 验证运行时防御
+    expect(() => store.setKey('bogus', 'k')).toThrow(/未知 provider/);
+    // @ts-expect-error 同上
+    expect(() => store.getKey('bogus')).toThrow(/未知 provider/);
+  });
+
   it('OS 安全存储不可用时 set 抛错、get 返回 null', () => {
     const dead: SafeCrypto = { ...fakeCrypto, isAvailable: () => false };
     const f = join(dir, 'dead.bin');
