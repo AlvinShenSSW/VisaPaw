@@ -64,6 +64,25 @@ describe('createSettingsStore', () => {
     expect(reopened.get().studentTypeDefault).toBe('01');
   });
 
+  it('部分 providers patch 不丢失固定 provider（Codex 外门 P2）', () => {
+    const p = join(dir, 'partial.json');
+    const store = createSettingsStore(p);
+    store.set({
+      providers: [
+        { id: 'openai', enabled: true, model: 'x' },
+        { id: 'claude', enabled: true, model: 'claude-sonnet-5' },
+        { id: 'mimo', enabled: false, model: 'mimo-v2.5' },
+      ],
+    });
+    // patch 只含 mimo（其余畸形被 sanitize 丢弃）→ 现有配置补全，已有 model/enabled 保留
+    const next = store.set({
+      providers: [{ id: 'mimo', enabled: true, model: 'mimo-v2.5-pro' }, { id: 'bad' }],
+    });
+    expect(next.providers.map((x) => x.id)).toEqual(['mimo', 'openai', 'claude']);
+    expect(next.providers.find((x) => x.id === 'claude')?.model).toBe('claude-sonnet-5');
+    expect(createSettingsStore(p).get().providers).toHaveLength(3);
+  });
+
   it('损坏的 settings.json 回退默认值而非崩溃', () => {
     const p = join(dir, 'corrupt.json');
     const store = createSettingsStore(p);

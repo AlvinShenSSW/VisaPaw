@@ -63,6 +63,15 @@ export function sanitizeSettings(input: unknown): SettingsPatch {
   return out;
 }
 
+/** 三个 provider 是固定应用选项——补全 patch 中缺失的项（保 patch 顺序，缺失者按 base 顺序追加） */
+export function completeProviders(
+  partial: ProviderSetting[],
+  base: ProviderSetting[]
+): ProviderSetting[] {
+  const present = new Set(partial.map((p) => p.id));
+  return [...partial, ...base.filter((p) => !present.has(p.id))];
+}
+
 export interface SettingsStore {
   get(): Settings;
   /** patch 已过 sanitize 后浅合并并原子落盘，返回合并结果 */
@@ -74,7 +83,8 @@ export function createSettingsStore(filePath: string): SettingsStore {
     try {
       const raw = JSON.parse(fs.readFileSync(filePath, 'utf8')) as unknown;
       const patch = sanitizeSettings(raw);
-      return { ...DEFAULT_SETTINGS, ...patch };
+      const merged = { ...DEFAULT_SETTINGS, ...patch };
+      return { ...merged, providers: completeProviders(merged.providers, DEFAULT_SETTINGS.providers) };
     } catch {
       return { ...DEFAULT_SETTINGS };
     }
@@ -88,7 +98,10 @@ export function createSettingsStore(filePath: string): SettingsStore {
   return {
     get: read,
     set(patch: unknown): Settings {
-      const next = { ...read(), ...sanitizeSettings(patch) };
+      const current = read();
+      const merged = { ...current, ...sanitizeSettings(patch) };
+      // 三个 provider 为固定选项：patch 只给子集时，缺失者从当前配置补全（Codex 外门 P2）
+      const next = { ...merged, providers: completeProviders(merged.providers, current.providers) };
       write(next);
       return next;
     },
