@@ -60,6 +60,8 @@ export interface RunSummary {
   status: 'running' | 'success' | 'error';
   totalMs?: number;
   checklistType?: string;
+  /** success 但翻译整体失败（保留英文清单）——与硬失败区分（Kimi PR#26 P2） */
+  translationFailed?: boolean;
 }
 
 export interface RunLog {

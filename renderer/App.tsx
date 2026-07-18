@@ -17,6 +17,7 @@ export function App(): React.JSX.Element {
   const [route, setRoute] = useState<Route>({ step: 1 });
   const [progress, setProgress] = useState<Step2State>({ phase: 'search' });
   const unsubRef = useRef<(() => void) | null>(null);
+  const mountedRef = useRef(true);
 
   useEffect(() => {
     // dev 下直接在浏览器打开时无 preload 桥——壳允许缺省
@@ -28,7 +29,10 @@ export function App(): React.JSX.Element {
       ?.getSettings()
       .then(setSettings)
       .catch(() => undefined);
-    return () => unsubRef.current?.();
+    return () => {
+      mountedRef.current = false; // 卸载后 IPC 回调不得 setState（Kimi PR#26 P2）
+      unsubRef.current?.();
+    };
   }, []);
 
   const startGenerate = (selection: Step1Selection): void => {
@@ -44,11 +48,12 @@ export function App(): React.JSX.Element {
       .then((result) => {
         unsubRef.current?.();
         unsubRef.current = null;
-        setRoute({ step: 3, result });
+        if (mountedRef.current) setRoute({ step: 3, result });
       })
       .catch((e: Error) => {
         unsubRef.current?.();
         unsubRef.current = null;
+        if (!mountedRef.current) return;
         if (e.message.includes('CANCELLED')) {
           setRoute({ step: 1 });
         } else {

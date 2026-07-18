@@ -199,6 +199,10 @@ export async function generateChecklist(
   });
 
   /* ---------- 组装（七大分类顺序 + 待人工归类殿后；空组省略） ---------- */
+  // 防御断言——等长不变量若被别处破坏，宁可失败也不产出静默 undefined 译文（Kimi minor）
+  if (!translationFailed && translations.length !== allTexts.length) {
+    throw new Error(`译文与条目数不一致：${translations.length}/${allTexts.length}`);
+  }
   let cursor = 0;
   const sectionResults: Array<{ category: string; section: ResultSection }> = annotated.map(
     (a, idx) => {
