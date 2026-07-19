@@ -52,7 +52,7 @@ const PROVIDER_META: Record<
   },
   deepseek: {
     name: 'DeepSeek（深度求索）',
-    small: 'OpenAI 兼容端点 · response_format: json_schema',
+    small: 'OpenAI 兼容端点 · response_format: json_object',
     logo: 'D',
     models: [
       { value: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash（默认）' },

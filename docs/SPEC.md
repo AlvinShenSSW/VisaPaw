@@ -27,7 +27,7 @@
 - 签证类别：**仅学生签 Subclass 500**（官网该工具本身只覆盖学生签）。
 - 输入：护照国籍、意向院校（或 CRICOS 码，可选「未定」）、学生类型（默认普通学生）。**不采集申请人姓名等任何个人信息**（与官网工具的三个原生字段一一对应）。
 - 输出：分类 + 翻译 + 备注 + 标题的清单文档（中英双语对照）；**Markdown 导出、PDF 导出、剪贴板复制**。
-- AI Provider：设置页可添加多家 API key（Claude / ChatGPT / MiMo），多选启用并**按用户排序做 fallback**；key 全部存 Keychain。详见 §8。
+- AI Provider：设置页可添加多家 API key（MiMo / DeepSeek / ChatGPT / Claude，默认此 fallback 顺序），多选启用并**按用户排序做 fallback**；key 全部存 Keychain。详见 §8。
 
 ### 明确不做（后续迭代）
 
@@ -141,18 +141,19 @@ Regular 版清单章节（官网原始结构，15 个，快照实测精确名）
 |---|---|---|---|
 | Claude（Anthropic） | 官方 SDK `@anthropic-ai/sdk` | `claude-opus-4-8`（$5/$25 每 MTok），可切 `claude-sonnet-5`（$3/$15，2026-08-31 前 $2/$10） | 按量计费；单次生成量级 Opus ≈ $0.3、Sonnet ≈ $0.1 |
 | ChatGPT（OpenAI） | 官方 SDK `openai` | 设置中可选（默认取当期旗舰） | 按量计费 |
-| MiMo（小米） | OpenAI/Anthropic 双协议兼容 API → 复用 `openai` SDK + baseURL 覆写 | `mimo-v2.5-pro` / `mimo-v2.5`（1M 上下文 / 128K 输出） | ⚠️ **Token Plan 套餐制**：额度耗尽返回配额错误，必须视为可 fallback 错误自动切换下一家，并在 UI 提示「MiMo 套餐额度已用尽」 |
+| MiMo（小米） | OpenAI 兼容 API（Token 计划端点）→ 复用 `openai` SDK + baseURL 覆写 | `mimo-v2.5-pro` / `mimo-v2.5`（1M 上下文 / 128K 输出） | ⚠️ **Token Plan 套餐制**：额度耗尽返回配额错误，必须视为可 fallback 错误自动切换下一家，并在 UI 提示「MiMo 套餐额度已用尽」 |
+| DeepSeek（深度求索） | OpenAI 兼容端点（`api.deepseek.com/v1`）→ 复用 `openai` SDK + baseURL 覆写 | `deepseek-v4-flash`（可切 `deepseek-chat`） | 按量计费；兼容端不支持 strict json_schema，走 `response_format: json_object` + 编排层 zod 校验兜底 |
 
 Fallback 触发条件（对所有 provider 统一）：认证失败（401/403）、限流（429）、**套餐/配额耗尽**、服务端错误（5xx）、结构化输出解析失败重试一次后仍失败。不可 fallback：网络完全不可用（直接报错）。每次生成在结果元信息中记录实际使用的 provider 与模型。
 
-- 三家统一走**结构化 JSON 输出**（Claude 用 `output_config.format`；OpenAI/MiMo 用 `response_format: json_schema`），条目数组进 → 等长译文数组出，防漏译错位；
-- 术语表进 system prompt（Claude 侧加 prompt caching）；三家共用同一份术语表与 prompt 模板，保证切换 provider 后术语一致；
+- 各家统一走**结构化 JSON 输出**（Claude 用 `output_config.format`；OpenAI/MiMo 用 `response_format: json_schema`；DeepSeek 用 `response_format: json_object` + prompt 附带 schema），条目数组进 → 等长译文数组出，防漏译错位；
+- 术语表进 system prompt（Claude 侧加 prompt caching）；各家共用同一份术语表与 prompt 模板，保证切换 provider 后术语一致；
 - 所有 key 存 macOS Keychain，按 provider 命名空间隔离。
 
 ## 9. 非功能性需求与硬约束
 
 1. **本机直连**：官网抓取只在用户 Mac 上进行，禁止云端代理（官网封数据中心 IP；也符合隐私原则）。
-2. **隐私**：**App 不采集任何个人信息**——输入不含姓名/护照号等字段，文档标题不含姓名；发送给 AI provider 的内容仅为官网公开清单文本（Claude/OpenAI/MiMo 一视同仁）。
+2. **隐私**：**App 不采集任何个人信息**——输入不含姓名/护照号等字段，文档标题不含姓名；发送给 AI provider 的内容仅为官网公开清单文本（各 provider 一视同仁）。
 3. **时效性**：每次生成实时抓取；文档标注抓取时间。
 4. **可降级**：结构指纹校验失败 → 内嵌 WebView 手动模式。
 5. **合规**：固定免责声明；低频请求不做批量并发。
@@ -179,6 +180,6 @@ Fallback 触发条件（对所有 provider 统一）：认证失败（401/403）
 ## 12. 决议记录（原开放问题，2026-07-19 已确认）
 
 1. **导出格式**：Markdown + **PDF** + 剪贴板，全部纳入 Iteration 1。✅
-2. **API key 模式**：设置页自行添加，支持多家 provider（Claude / ChatGPT / MiMo）多选启用、按用户排序做 fallback。注意 MiMo 为 Token Plan 套餐计费，额度耗尽须自动 fallback。✅
+2. **API key 模式**：设置页自行添加，支持多家 provider（MiMo / DeepSeek / ChatGPT / Claude）多选启用、按用户排序做 fallback。注意 MiMo 为 Token Plan 套餐计费，额度耗尽须自动 fallback。✅
 3. **展示形态**：中英双语对照。✅
 4. **三步向导修订**（2026-07-19，依据 mockups 定稿 Spec Review，Issue #2）：① Step 1 收敛为官网工具三个原生字段，**移除姓名字段**，App 全程不采集个人信息，文档标题不含姓名；② 原「生成进度视图」降为轻量 Step 2（搜索官网清单 → 翻译成中文两阶段 + provider/fallback 提示）；③ 细粒度过程改为写入 设置 → 日志。免责声明、抓取时间、清单类型三要素不受影响。✅
