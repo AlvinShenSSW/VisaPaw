@@ -38,6 +38,20 @@ body {
   font-size: var(--fs-body);
   font-weight: 600;
   color: var(--text-2);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+/* 品牌 logo（logo.png 单源；也是 app 图标 build/icon.png 的来源） */
+.app-logo {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  display: block;
+  /* 位于可拖拽标题栏内——禁掉原生图片拖拽，避免拖动窗口的死区（Kimi PR#36 minor） */
+  -webkit-user-drag: none;
+  pointer-events: none;
 }
 
 .titlebar .gear {

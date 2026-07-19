@@ -9,6 +9,7 @@ files:
   - package.json
 mac:
   category: public.app-category.productivity
+  icon: build/icon.png
   target:
     - dmg
     - zip

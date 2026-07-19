@@ -4,6 +4,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
+import logoUrl from './assets/logo.png';
 import type { GenerateOutcome, GenerateResult, Settings } from '../common/types.ts';
 import { ErrorView } from './views/ErrorView.tsx';
 import { providerChainLabel } from './lib/status.ts';
@@ -94,11 +95,12 @@ export function App(): React.JSX.Element {
     <div className="shell">
       <header className="titlebar">
         <span className="title">
+          <img src={logoUrl} className="app-logo" alt="" />
           {showSettings
             ? 'VisaPaw 设置'
             : route.step === 'error' && route.outcome.kind === 'structure'
-              ? '🐾 VisaPaw — 官网手动模式（降级）'
-              : `🐾 VisaPaw${
+              ? 'VisaPaw — 官网手动模式（降级）'
+              : `VisaPaw${
                   route.step === 2
                     ? ' — 生成清单'
                     : route.step === 3
