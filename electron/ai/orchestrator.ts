@@ -29,6 +29,7 @@ import {
   buildSystemPrompt,
   classifySchema,
   classifyUserPrompt,
+  pingSchema,
   translateSchema,
   translateUserPrompt,
 } from './prompts.ts';
@@ -92,7 +93,7 @@ function defaultAdapterFactory(spec: AdapterSpec): ProviderAdapter {
   }
 }
 
-function resolveModel(id: ProviderId, configured: string): string {
+export function resolveModel(id: ProviderId, configured: string): string {
   if (configured) return configured;
   return id === 'claude'
     ? CLAUDE_DEFAULT_MODEL
@@ -220,4 +221,29 @@ export function createAiService(deps: AiServiceDeps): AiService {
 function toAiError(e: unknown, provider: ProviderId): AiError {
   if (e instanceof AiError) return e;
   return new AiError('server', `未知错误：${(e as Error)?.message ?? String(e)}`, provider);
+}
+
+/**
+ * 单 provider 连接测试（设置页「测试」按钮）——最小结构化 ping，
+ * 不走 fallback 链；失败以 AiError 抛出供 UI 分类提示。请求体无任何个人信息。
+ */
+export async function pingProvider(
+  spec: AdapterSpec,
+  factory: (spec: AdapterSpec) => ProviderAdapter = defaultAdapterFactory
+): Promise<void> {
+  const adapter = factory(spec);
+  try {
+    const raw = await adapter.callStructured({
+      system: '你是连接测试端点。只返回符合给定 JSON schema 的输出。',
+      user: '返回 {"pong": true}',
+      schema: pingSchema,
+      schemaName: 'ping_result',
+    });
+    const parsed = pingSchema.safeParse(raw);
+    if (!parsed.success || parsed.data.pong !== true) {
+      throw new AiError('parse', '测试响应内容不符合预期', spec.id);
+    }
+  } catch (e) {
+    throw toAiError(e, spec.id);
+  }
 }
