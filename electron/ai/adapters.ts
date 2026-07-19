@@ -12,8 +12,8 @@ import type { ProviderId } from '../../common/types.ts';
 import { AiError, classifyProviderError } from './errors.ts';
 import { toStrictJsonSchema } from './prompts.ts';
 
-/** MiMo 开放平台 OpenAI 兼容端点（以官方文档为准，变更时在此调整） */
-export const MIMO_BASE_URL = 'https://api.mimo.xiaomi.com/v1';
+/** MiMo Token 计划 OpenAI 兼容端点（2026-07-19 实测；以官方文档为准，变更时在此调整） */
+export const MIMO_BASE_URL = 'https://token-plan-cn.xiaomimimo.com/v1';
 /** OpenAI 默认模型（SPEC：设置中可选、默认取当期旗舰；错误会触发 fallback，不阻断） */
 export const OPENAI_DEFAULT_MODEL = 'gpt-5.2';
 export const CLAUDE_DEFAULT_MODEL = 'claude-opus-4-8';
@@ -144,6 +144,29 @@ function parseJsonOrThrow(text: string | undefined, provider: ProviderId): unkno
   try {
     return JSON.parse(text) as unknown;
   } catch {
+    // 容错抽取：推理模型（MiMo 等）常把 JSON 包在 <think> 段或 ```json 围栏里，
+    // 或前后带说明文字——剥壳后再试一次，仍失败才判 parse（同 provider 重试一次的
+    // 编排策略不变）
+    const stripped = extractJsonPayload(text);
+    if (stripped !== null) {
+      try {
+        return JSON.parse(stripped) as unknown;
+      } catch {
+        /* 落入下方统一 parse 错误 */
+      }
+    }
     throw new AiError('parse', `模型输出不是合法 JSON：${text.slice(0, 120)}…`, provider);
   }
+}
+
+/** 从含杂质的模型输出中抽取 JSON 文本；无法定位时返回 null */
+function extractJsonPayload(text: string): string | null {
+  let t = text.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+  const fence = t.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+  if (fence) t = fence[1].trim();
+  const start = t.search(/[[{]/);
+  if (start === -1) return null;
+  const end = t.lastIndexOf(t[start] === '{' ? '}' : ']');
+  if (end <= start) return null;
+  return t.slice(start, end + 1);
 }

@@ -93,6 +93,33 @@ describe('OpenAI 兼容适配器（ChatGPT / MiMo）', () => {
     const adapter = createOpenAiCompatAdapter({ id: 'openai', apiKey: 'k', model: 'm', clientFactory: () => client });
     await expect(adapter.callStructured(CALL)).rejects.toMatchObject({ kind: 'parse' });
   });
+
+  it('容错解析：<think> 段 / ```json 围栏 / 前后说明文字均能剥壳（MiMo 实测 parse 修复）', async () => {
+    const wrapped = [
+      '<think>先想一想这些条目怎么翻</think>\n```json\n{"translations":["一"]}\n```',
+      '```\n{"translations":["一"]}\n```',
+      '好的，以下是翻译结果：\n{"translations":["一"]}\n如需调整请告知。',
+    ];
+    for (const content of wrapped) {
+      const client: OpenAiClientLike = {
+        chat: { completions: { create: vi.fn().mockResolvedValue({ choices: [{ message: { content } }] }) } },
+      };
+      const adapter = createOpenAiCompatAdapter({ id: 'mimo', apiKey: 'k', model: 'm', clientFactory: () => client });
+      await expect(adapter.callStructured(CALL)).resolves.toEqual({ translations: ['一'] });
+    }
+  });
+
+  it('剥壳后仍不是 JSON → parse 错误（不静默吞坏输出）', async () => {
+    const client: OpenAiClientLike = {
+      chat: {
+        completions: {
+          create: vi.fn().mockResolvedValue({ choices: [{ message: { content: '完全没有 JSON 的回复 { 残缺' } }] }),
+        },
+      },
+    };
+    const adapter = createOpenAiCompatAdapter({ id: 'mimo', apiKey: 'k', model: 'm', clientFactory: () => client });
+    await expect(adapter.callStructured(CALL)).rejects.toMatchObject({ kind: 'parse' });
+  });
 });
 
 describe('classifyProviderError（三家共用错误映射）', () => {
