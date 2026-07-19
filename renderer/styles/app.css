@@ -38,6 +38,17 @@ body {
   font-size: var(--fs-body);
   font-weight: 600;
   color: var(--text-2);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+/* 品牌 logo（logo.png 单源；也是 app 图标 build/icon.png 的来源） */
+.app-logo {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  display: block;
 }
 
 .titlebar .gear {
