@@ -65,7 +65,13 @@ function itemSourceUrl(row: {
 /** 通用要求块（trigger=all 规则头部一处展示，产品决议 2026-07-19）——MD 与纯文本共用 */
 function generalNotesLines(result: GenerateResult, heading: string): string[] {
   if (!result.generalNotes.length) return [];
-  return [heading, ...result.generalNotes.map((n) => `- ${ensurePeriod(n)}`), ''];
+  return [
+    heading,
+    ...result.generalNotes.map(
+      (n) => `- ${n.level === 'warning' ? '⚠️ ' : ''}${ensurePeriod(n.note)}`
+    ),
+    '',
+  ];
 }
 
 /** Markdown（SPEC §7 文档结构） */
@@ -241,6 +247,7 @@ export function buildPrintHtml(result: GenerateResult): string {
   .note.warn { color: #B23B3B; background: #FBEDED; border: 1px solid #EFC7C7; border-left: 4px solid #B23B3B; font-weight: 500; }
   .general { border: 1px solid #BFDFF5; background: #EAF5FD; border-radius: 8px; padding: 8px 12px; margin-bottom: 14px; color: #1D2733; font-size: 11.5px; }
   .general ul { margin: 4px 0 0 18px; }
+  .general li.warn { color: #B23B3B; font-weight: 500; }
   .disclaimer { margin-top: 20px; padding-top: 12px; border-top: 1px solid #E1E7EE; color: #5A6B7D; font-size: 10.5px; }
 </style></head>
 <body>
@@ -250,7 +257,10 @@ export function buildPrintHtml(result: GenerateResult): string {
   ${
     result.generalNotes.length
       ? `<div class="general"><b>${esc(GENERAL_NOTES_HEADING)}：</b><ul>${result.generalNotes
-          .map((n) => `<li>${esc(ensurePeriod(n))}</li>`)
+          .map(
+            (n) =>
+              `<li${n.level === 'warning' ? ' class="warn"' : ''}>${n.level === 'warning' ? '⚠️ ' : ''}${esc(ensurePeriod(n.note))}</li>`
+          )
           .join('')}</ul></div>`
       : ''
   }

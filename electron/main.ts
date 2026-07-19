@@ -33,7 +33,9 @@ function isExportableResult(raw: unknown): raw is GenerateResult {
         (typeof r.params.school?.key === 'string' && typeof r.params.school?.value === 'string')) &&
       typeof r.params.studentTypeCode === 'string' &&
       Array.isArray(r.generalNotes) &&
-      r.generalNotes.every((n) => typeof n === 'string') &&
+      r.generalNotes.every(
+        (n) => typeof n?.note === 'string' && (n.level === 'normal' || n.level === 'warning')
+      ) &&
       Array.isArray(r.aiMetas) &&
       Array.isArray(r.groups) &&
       r.groups.every(
@@ -295,10 +297,11 @@ function registerIpc(): void {
   // 状态 D：仅重试翻译，不重新抓取（#13）——与生成共用互斥锁（Codex PR#29 P2）
   ipcMain.handle('generate:retry-translation', async (_e, raw: unknown): Promise<GenerateOutcome> => {
     if (activeCancel) return { ok: false, kind: 'unknown', message: '已有生成任务进行中' };
-    const prev = raw as GenerateResult;
-    if (!prev?.groups || !prev?.params?.country?.value) {
+    // 与导出同一深层校验——缺 generalNotes 等字段的畸形结果不得流入重译链（Kimi PR#32 P2）
+    if (!isExportableResult(raw)) {
       return { ok: false, kind: 'unknown', message: '重试参数不合法' };
     }
+    const prev = raw;
     const lock = { cancelled: false };
     activeCancel = lock;
     const run = logs.startRun({

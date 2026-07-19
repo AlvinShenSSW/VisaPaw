@@ -161,15 +161,40 @@ function parseJsonOrThrow(text: string | undefined, provider: ProviderId): unkno
 
 /**
  * 从含杂质的模型输出中抽取 JSON 文本；无法定位时返回 null。
- * 平衡括号扫描并尊重字符串转义——首末括号截取会被字符串值内的 }/] 或
- * JSON 后的尾随文字截错位置（Kimi PR#32 P2）
+ * - 围栏内容优先，且不对围栏内做 <think> 剥离——围栏内字符串可能合法含该标记
+ *   （Kimi PR#32 minor）；无围栏时才剥推理段
+ * - 平衡括号扫描并尊重字符串转义——首末括号截取会被字符串值内的 }/] 或
+ *   JSON 后的尾随文字截错位置（Kimi PR#32 P2）
+ * - 多候选逐个试 parse，对象候选优先（三个业务 schema 均为对象）——正文里
+ *   出现的顺带 JSON 片段不误占（Kimi PR#32 minor）
  */
 function extractJsonPayload(text: string): string | null {
-  let t = text.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
-  const fence = t.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-  if (fence) t = fence[1].trim();
-  const start = t.search(/[[{]/);
-  if (start === -1) return null;
+  const fence = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+  const t = (fence ? fence[1] : text.replace(/<think>[\s\S]*?<\/think>/g, '')).trim();
+  let arrayFallback: string | null = null;
+  let from = 0;
+  while (from < t.length) {
+    const rel = t.slice(from).search(/[[{]/);
+    if (rel === -1) break;
+    const start = from + rel;
+    const end = balancedEnd(t, start);
+    if (end !== -1) {
+      const candidate = t.slice(start, end + 1);
+      try {
+        JSON.parse(candidate);
+        if (t[start] === '{') return candidate;
+        arrayFallback ??= candidate;
+      } catch {
+        /* 换下一个候选 */
+      }
+    }
+    from = start + 1;
+  }
+  return arrayFallback;
+}
+
+/** start 处括号的平衡闭合位置（尊重 JSON 字符串与转义）；未闭合返回 -1 */
+function balancedEnd(t: string, start: number): number {
   const open = t[start];
   const close = open === '{' ? '}' : ']';
   let depth = 0;
@@ -187,8 +212,8 @@ function extractJsonPayload(text: string): string | null {
       depth += 1;
     } else if (c === close) {
       depth -= 1;
-      if (depth === 0) return t.slice(start, i + 1);
+      if (depth === 0) return i;
     }
   }
-  return null;
+  return -1;
 }

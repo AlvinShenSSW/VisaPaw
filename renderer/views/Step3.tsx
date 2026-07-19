@@ -95,7 +95,10 @@ export function Step3(props: Step3Props): React.JSX.Element {
               <b>{GENERAL_NOTES_HEADING}：</b>
               <ul>
                 {result.generalNotes.map((n) => (
-                  <li key={n}>{ensurePeriod(n)}</li>
+                  <li key={n.note} className={n.level === 'warning' ? 'warn' : undefined}>
+                    {n.level === 'warning' ? '⚠️ ' : ''}
+                    {ensurePeriod(n.note)}
+                  </li>
                 ))}
               </ul>
             </div>

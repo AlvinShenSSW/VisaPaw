@@ -110,6 +110,9 @@ export interface ResultNote {
   level: 'normal' | 'warning';
 }
 
+/** 头部通用要求条目——保留 level，warning 级通用规则不丢分层样式（Kimi PR#32 minor） */
+export type GeneralNote = Pick<ResultNote, 'note' | 'level'>;
+
 export interface ResultItem {
   /** 官网英文原文 */
   en: string;
@@ -138,7 +141,7 @@ export interface GenerateResult {
   fetchedAt: string;
   params: GenerateParams;
   /** trigger=all 的通用规则备注——只在头部展示一处，不逐条重复（产品决议 2026-07-19） */
-  generalNotes: string[];
+  generalNotes: GeneralNote[];
   groups: ResultGroup[];
   /** 最终批次使用的 provider/模型；翻译整体失败时为 null */
   aiMeta: { provider: ProviderId; model: string } | null;

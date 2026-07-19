@@ -229,21 +229,38 @@ function toAiError(e: unknown, provider: ProviderId): AiError {
  */
 export async function pingProvider(
   spec: AdapterSpec,
-  factory: (spec: AdapterSpec) => ProviderAdapter = defaultAdapterFactory
+  factory: (spec: AdapterSpec) => ProviderAdapter = defaultAdapterFactory,
+  timeoutMs = 15_000
 ): Promise<void> {
   const adapter = factory(spec);
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
-    const raw = await adapter.callStructured({
-      system: '你是连接测试端点。只返回符合给定 JSON schema 的输出。',
-      user: '返回 {"pong": true}',
-      schema: pingSchema,
-      schemaName: 'ping_result',
+    // 超时保护——挂死的 provider 不得让设置页按钮无限「测试中」（Kimi PR#32 minor）
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(
+        () =>
+          reject(
+            new AiError('network', `连接测试超时（${Math.round(timeoutMs / 1000)}s 无响应）`, spec.id)
+          ),
+        timeoutMs
+      );
     });
+    const raw = await Promise.race([
+      adapter.callStructured({
+        system: '你是连接测试端点。只返回符合给定 JSON schema 的输出。',
+        user: '返回 {"pong": true}',
+        schema: pingSchema,
+        schemaName: 'ping_result',
+      }),
+      timeout,
+    ]);
     const parsed = pingSchema.safeParse(raw);
     if (!parsed.success || parsed.data.pong !== true) {
       throw new AiError('parse', '测试响应内容不符合预期', spec.id);
     }
   } catch (e) {
     throw toAiError(e, spec.id);
+  } finally {
+    clearTimeout(timer);
   }
 }

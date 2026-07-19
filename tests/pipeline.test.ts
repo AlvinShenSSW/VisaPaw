@@ -79,8 +79,8 @@ describe('generateChecklist（正常链路）', () => {
 
     // 译文逐条对应；通用规则（R1/R2）提为头部一处，不再逐条重复（产品决议 2026-07-19）
     expect(result.generalNotes).toEqual([
-      '彩色扫描件，四角齐全，清晰可读',
-      '非英文材料须附宣誓翻译（certified translation）或公证翻译件',
+      { note: '彩色扫描件，四角齐全，清晰可读', level: 'normal' },
+      { note: '非英文材料须附宣誓翻译（certified translation）或公证翻译件', level: 'normal' },
     ]);
     const allItems = result.groups.flatMap((g) => g.sections.flatMap((s) => s.items));
     expect(allItems.length).toBeGreaterThan(0);

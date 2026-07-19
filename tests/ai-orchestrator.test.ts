@@ -212,4 +212,10 @@ describe('pingProvider（设置页「测试」按钮的最小连接测试）', (
       pingProvider(spec, stub(async () => Promise.reject(new Error('boom'))))
     ).rejects.toMatchObject({ kind: 'server' });
   });
+
+  it('挂死的 provider 超时 → network（设置页按钮不得无限「测试中」）', async () => {
+    await expect(
+      pingProvider(spec, stub(() => new Promise(() => undefined)), 20)
+    ).rejects.toMatchObject({ kind: 'network' });
+  });
 });

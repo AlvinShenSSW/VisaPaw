@@ -100,10 +100,13 @@ describe('OpenAI 兼容适配器（ChatGPT / MiMo）', () => {
       '```\n{"translations":["一"]}\n```',
       '好的，以下是翻译结果：\n{"translations":["一"]}\n如需调整请告知。',
     ];
-    // 字符串值内含 }/] 与 JSON 后带含括号的尾随文字——平衡扫描不得截错（Kimi PR#32 P2）
+    // 字符串值内含 }/] 与 JSON 后带含括号的尾随文字——平衡扫描不得截错（Kimi PR#32 P2）；
+    // 围栏内字符串可合法含 <think>；正文顺带 JSON 片段不误占对象候选（Kimi PR#32 minor）
     const bracey = [
       '结果：{"translations":["含右括号 } 与 ] 的译文（URL: https://x.example/a}b）"]}',
       '{"translations":["一"]}\n（注：以上 {json} 已按 schema 输出）',
+      '```json\n{"translations":["原文含 <think> 标记 </think> 也不能丢"]}\n```',
+      '输入数组 ["a"] 已收到，输出：{"translations":["一"]}',
     ];
     for (const content of bracey) {
       const client: OpenAiClientLike = {

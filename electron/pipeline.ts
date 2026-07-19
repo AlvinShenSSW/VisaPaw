@@ -126,7 +126,10 @@ export async function generateChecklist(
   const generalRuleIds = new Set(
     DEFAULT_RULES.filter((r) => r.trigger.type === 'all').map((r) => r.id)
   );
-  const generalNotes = DEFAULT_RULES.filter((r) => r.trigger.type === 'all').map((r) => r.note);
+  const generalNotes = DEFAULT_RULES.filter((r) => r.trigger.type === 'all').map((r) => ({
+    note: r.note,
+    level: r.level,
+  }));
   let warningCount = 0;
   const annotated = sections.map((s) => ({
     section: s,
