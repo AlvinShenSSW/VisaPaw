@@ -16,6 +16,7 @@ const PROVIDER_LABEL: Record<ProviderId, string> = {
   claude: 'Claude',
   openai: 'ChatGPT',
   mimo: 'MiMo',
+  deepseek: 'DeepSeek',
 };
 
 export interface Step2Props {

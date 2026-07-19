@@ -38,6 +38,7 @@
 .logo-claude { background: var(--brand-claude); }
 .logo-openai { background: var(--brand-openai); }
 .logo-mimo { background: var(--brand-mimo); }
+.logo-deepseek { background: var(--brand-deepseek); }
 .p-name { font-size: 14px; font-weight: 700; }
 .p-name small { display: block; font-weight: 400; font-size: 11.5px; color: var(--text-3); margin-top: 1px; }
 .p-status { margin-left: auto; display: flex; align-items: center; gap: 12px; }

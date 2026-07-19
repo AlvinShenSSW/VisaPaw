@@ -21,6 +21,7 @@ const PROVIDER_LABEL: Record<string, string> = {
   claude: 'Claude',
   openai: 'ChatGPT',
   mimo: 'MiMo',
+  deepseek: 'DeepSeek',
 };
 
 export interface RunHandle {

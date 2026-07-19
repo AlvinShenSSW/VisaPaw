@@ -14,6 +14,9 @@ import { toStrictJsonSchema } from './prompts.ts';
 
 /** MiMo Token 计划 OpenAI 兼容端点（2026-07-19 实测；以官方文档为准，变更时在此调整） */
 export const MIMO_BASE_URL = 'https://token-plan-cn.xiaomimimo.com/v1';
+/** DeepSeek 开放平台 OpenAI 兼容端点（#34；以官方文档为准，变更时在此调整） */
+export const DEEPSEEK_BASE_URL = 'https://api.deepseek.com/v1';
+export const DEEPSEEK_DEFAULT_MODEL = 'deepseek-v4-flash';
 /** OpenAI 默认模型（SPEC：设置中可选、默认取当期旗舰；错误会触发 fallback，不阻断） */
 export const OPENAI_DEFAULT_MODEL = 'gpt-5.2';
 export const CLAUDE_DEFAULT_MODEL = 'claude-opus-4-8';

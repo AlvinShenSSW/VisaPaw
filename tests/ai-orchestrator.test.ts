@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { createAiService, pingProvider, type AiEvent } from '../electron/ai/orchestrator.ts';
+import { createAiService, pingProvider, resolveModel, type AiEvent, type AiService } from '../electron/ai/orchestrator.ts';
 import { AiError, AiExhaustedError, type AiErrorKind } from '../electron/ai/errors.ts';
 import type { ProviderAdapter } from '../electron/ai/adapters.ts';
 import type { ProviderId, ProviderSetting } from '../common/types.ts';
@@ -217,5 +217,67 @@ describe('pingProvider（设置页「测试」按钮的最小连接测试）', (
     await expect(
       pingProvider(spec, stub(() => new Promise(() => undefined)), 20)
     ).rejects.toMatchObject({ kind: 'network' });
+  });
+});
+
+describe('DeepSeek（#34：新 provider 接入编排链）', () => {
+  it('resolveModel：未配置时取 deepseek-v4-flash 默认', () => {
+    expect(resolveModel('deepseek', '')).toBe('deepseek-v4-flash');
+    expect(resolveModel('deepseek', 'deepseek-chat')).toBe('deepseek-chat');
+  });
+
+  it('四家链路：mimo quota → deepseek 接手；错误矩阵语义与其余 provider 一致', async () => {
+    const events: AiEvent[] = [];
+    const service = createAiService({
+      settings: {
+        providers: [
+          { id: 'mimo', enabled: true, model: '' },
+          { id: 'deepseek', enabled: true, model: '' },
+          { id: 'openai', enabled: false, model: '' },
+          { id: 'claude', enabled: false, model: '' },
+        ],
+      },
+      getKey: () => 'k',
+      onEvent: (e) => events.push(e),
+      adapterFactory: (spec) => ({
+        id: spec.id,
+        model: spec.model,
+        callStructured: async () => {
+          if (spec.id === 'mimo') throw new AiError('quota', '额度耗尽', 'mimo');
+          return { translations: ['一'] };
+        },
+      }),
+    });
+    const { meta } = await service.translate(['one']);
+    expect(meta).toEqual({ provider: 'deepseek', model: 'deepseek-v4-flash' });
+    expect(events.find((e) => e.type === 'fallback')).toMatchObject({
+      provider: 'mimo',
+      errorKind: 'quota',
+      next: 'deepseek',
+    });
+  });
+
+  it('deepseek auth 失败 → fallback 下一家；network 直接抛出不 fallback', async () => {
+    const make = (kind: 'auth' | 'network'): AiService =>
+      createAiService({
+        settings: {
+          providers: [
+            { id: 'deepseek', enabled: true, model: '' },
+            { id: 'claude', enabled: true, model: '' },
+          ],
+        },
+        getKey: () => 'k',
+        adapterFactory: (spec) => ({
+          id: spec.id,
+          model: spec.model,
+          callStructured: async () => {
+            if (spec.id === 'deepseek') throw new AiError(kind, `${kind} 注入`, 'deepseek');
+            return { translations: ['一'] };
+          },
+        }),
+      });
+    const ok = await make('auth').translate(['one']);
+    expect(ok.meta.provider).toBe('claude');
+    await expect(make('network').translate(['one'])).rejects.toMatchObject({ kind: 'network' });
   });
 });
