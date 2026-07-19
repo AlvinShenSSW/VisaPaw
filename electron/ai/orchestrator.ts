@@ -98,6 +98,8 @@ function defaultAdapterFactory(spec: AdapterSpec): ProviderAdapter {
         apiKey: spec.apiKey,
         model: spec.model,
         baseURL: DEEPSEEK_BASE_URL,
+        // DeepSeek 兼容端不支持 strict json_schema，只支持 json_object（Codex PR#38 P1）
+        schemaMode: 'json_object',
       });
   }
 }

@@ -100,6 +100,12 @@ export interface OpenAiCompatAdapterConfig {
   apiKey: string;
   model: string;
   baseURL?: string;
+  /**
+   * 结构化输出模式：默认 strict json_schema（OpenAI/MiMo）；DeepSeek 的兼容端
+   * 只支持 json_object——schema 约束改由 prompt 附带 + 编排层 zod 校验兜底
+   * （Codex PR#38 P1）
+   */
+  schemaMode?: 'json_schema' | 'json_object';
   clientFactory?: (apiKey: string, baseURL?: string) => OpenAiClientLike;
 }
 
@@ -113,21 +119,31 @@ export function createOpenAiCompatAdapter(cfg: OpenAiCompatAdapterConfig): Provi
     model: cfg.model,
     async callStructured(call) {
       let text: string | null | undefined;
+      const jsonObjectMode = cfg.schemaMode === 'json_object';
       try {
         const res = await client.chat.completions.create({
           model: cfg.model,
           messages: [
             { role: 'system', content: call.system },
-            { role: 'user', content: call.user },
-          ],
-          response_format: {
-            type: 'json_schema',
-            json_schema: {
-              name: call.schemaName,
-              strict: true,
-              schema: toStrictJsonSchema(call.schema),
+            {
+              role: 'user',
+              // json_object 模式无服务端 schema 约束——把 schema 附进 prompt，
+              // 形状仍由编排层 zod 校验（失败走同家重试→fallback，语义不变）
+              content: jsonObjectMode
+                ? `${call.user}\n\n输出必须是符合以下 JSON Schema 的 JSON 对象：\n${JSON.stringify(toStrictJsonSchema(call.schema))}`
+                : call.user,
             },
-          },
+          ],
+          response_format: jsonObjectMode
+            ? { type: 'json_object' }
+            : {
+                type: 'json_schema',
+                json_schema: {
+                  name: call.schemaName,
+                  strict: true,
+                  schema: toStrictJsonSchema(call.schema),
+                },
+              },
         });
         text = res.choices[0]?.message?.content;
       } catch (e) {
