@@ -121,17 +121,22 @@ export async function generateChecklist(
   run?.log('info', '分类', `确定性映射命中 ${hits}/${sections.length} 章节`);
   throwIfCancelled();
 
-  // 备注（确定性规则引擎——红线 3）
+  // 备注（确定性规则引擎——红线 3）。trigger=all 的通用规则提为 generalNotes
+  // 头部一处展示，不再逐条重复（产品决议 2026-07-19）；条目级只留关键词触发规则（如 R3）
+  const generalRuleIds = new Set(
+    DEFAULT_RULES.filter((r) => r.trigger.type === 'all').map((r) => r.id)
+  );
+  const generalNotes = DEFAULT_RULES.filter((r) => r.trigger.type === 'all').map((r) => r.note);
   let warningCount = 0;
   const annotated = sections.map((s) => ({
     section: s,
     items: s.items.map((it) => {
-      const notes = annotateItem(it.text, DEFAULT_RULES);
+      const notes = annotateItem(it.text, DEFAULT_RULES).filter((n) => !generalRuleIds.has(n.ruleId));
       if (notes.some((n) => n.level === 'warning')) warningCount += 1;
       return { it, notes };
     }),
   }));
-  run?.log('ok', '备注', `规则引擎 R1–R3 注入完成（含 ${warningCount} 条 R3 公证翻译警告）`);
+  run?.log('ok', '备注', `规则引擎注入完成：${generalNotes.length} 条通用要求 + ${warningCount} 条 R3 公证翻译警告`);
 
   onProgress({
     type: 'phase',
@@ -251,6 +256,7 @@ export async function generateChecklist(
     checklistType,
     fetchedAt: page.fetchedAt,
     params,
+    generalNotes,
     groups,
     aiMeta,
     aiMetas,

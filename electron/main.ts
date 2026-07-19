@@ -11,10 +11,11 @@ import { createSettingsStore, PROVIDER_IDS, type SettingsStore, type ProviderId 
 import { createCredentialStore, type CredentialStore, type SafeCrypto } from './credential-store.ts';
 import { createLogStore, type LogStore } from './logging.ts';
 import { createFetcher, type Fetcher } from './fetcher.ts';
-import { createAiService } from './ai/orchestrator.ts';
+import { createAiService, pingProvider, resolveModel } from './ai/orchestrator.ts';
+import { AiError } from './ai/errors.ts';
 import { generateChecklist, mapGenerateError, retranslateResult } from './pipeline.ts';
 import { buildMarkdown, buildPlainText, buildPrintHtml } from './exporter.ts';
-import type { ExportOutcome, GenerateOutcome, GenerateParams, GenerateResult, ProgressEvent } from '../common/types.ts';
+import type { ExportOutcome, GenerateOutcome, GenerateParams, GenerateResult, KeyTestResult, ProgressEvent } from '../common/types.ts';
 
 const DEV_URL = process.env.VITE_DEV_SERVER_URL || 'http://localhost:5274';
 
@@ -31,6 +32,8 @@ function isExportableResult(raw: unknown): raw is GenerateResult {
       (r.params.school === 'undecided' ||
         (typeof r.params.school?.key === 'string' && typeof r.params.school?.value === 'string')) &&
       typeof r.params.studentTypeCode === 'string' &&
+      Array.isArray(r.generalNotes) &&
+      r.generalNotes.every((n) => typeof n === 'string') &&
       Array.isArray(r.aiMetas) &&
       Array.isArray(r.groups) &&
       r.groups.every(
@@ -175,6 +178,40 @@ function registerIpc(): void {
     });
   });
   ipcMain.handle('credentials:status', () => credentials.getStatus());
+  // 单 provider 连接测试（设置页「测试」按钮）——用户显式触发的最小真实 ping；
+  // key 只在 main 侧读取，不跨 IPC（#12 决议不破）
+  let activeKeyTest = false;
+  ipcMain.handle('credentials:test', async (_e, provider: unknown): Promise<KeyTestResult> => {
+    assertProvider(provider);
+    if (activeKeyTest) return { ok: false, message: '已有测试进行中，请稍候' };
+    const apiKey = credentials.getKey(provider);
+    if (!apiKey) return { ok: false, message: '尚未保存 API key' };
+    const setting = settings.get().providers.find((p) => p.id === provider);
+    const model = resolveModel(provider, setting?.model ?? '');
+    activeKeyTest = true;
+    try {
+      await pingProvider({ id: provider, apiKey, model });
+      return { ok: true, model };
+    } catch (e) {
+      const kindLabel: Record<string, string> = {
+        auth: '认证失败（API key 无效或无权限）',
+        'rate-limit': '已连通但被限流',
+        quota: '已连通但套餐额度不足',
+        server: '服务端错误',
+        parse: '已连通但输出格式异常',
+        network: '网络不可达（检查网络或 base URL）',
+      };
+      const err = e instanceof AiError ? e : null;
+      return {
+        ok: false,
+        message: err
+          ? `${kindLabel[err.kind] ?? err.kind}：${err.message}`
+          : (e as Error)?.message ?? String(e),
+      };
+    } finally {
+      activeKeyTest = false;
+    }
+  });
   // Termstore 下拉数据（#9）——smoke 模式不发真实请求（低频红线）
   ipcMain.handle('terms:get', (_e, kind: unknown) => {
     if (kind !== 'countries' && kind !== 'cricos') throw new Error(`未知的 term kind：${String(kind)}`);

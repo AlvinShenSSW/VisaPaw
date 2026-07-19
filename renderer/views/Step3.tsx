@@ -89,6 +89,16 @@ export function Step3(props: Step3Props): React.JSX.Element {
             <span>抓取时间：{formatFetchedAt(result.fetchedAt)}</span>
             <span className="ai">{aiMetaLabel(result)}</span>
           </div>
+          {result.generalNotes.length > 0 && (
+            <div className="general-notes">
+              <b>通用要求（适用于以下全部材料）：</b>
+              <ul>
+                {result.generalNotes.map((n) => (
+                  <li key={n}>{ensurePeriod(n)}</li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
 
         {result.translationFailed && (

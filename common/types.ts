@@ -137,6 +137,8 @@ export interface GenerateResult {
   /** UTC ISO 抓取时间（红线三要素之一） */
   fetchedAt: string;
   params: GenerateParams;
+  /** trigger=all 的通用规则备注——只在头部展示一处，不逐条重复（产品决议 2026-07-19） */
+  generalNotes: string[];
   groups: ResultGroup[];
   /** 最终批次使用的 provider/模型；翻译整体失败时为 null */
   aiMeta: { provider: ProviderId; model: string } | null;
@@ -155,6 +157,9 @@ export type GenerateOutcome =
       message: string;
     };
 
+/** 设置页 provider 连接测试结果 */
+export type KeyTestResult = { ok: true; model: string } | { ok: false; message: string };
+
 /** 导出结果联合——用户取消是结构化标志而非文案匹配（Kimi PR#30 P2） */
 export type ExportOutcome =
   | { ok: true; path?: string }
@@ -165,6 +170,8 @@ export interface VisapawBridge {
   setSettings(patch: Partial<Settings>): Promise<Settings>;
   setProviderKey(provider: ProviderId, key: string): Promise<VaultStatus>;
   deleteProviderKey(provider: ProviderId): Promise<VaultStatus>;
+  /** 设置页「测试」按钮：对单 provider 发最小真实 ping（用户显式触发；key 不出 main） */
+  testProviderKey(provider: ProviderId): Promise<KeyTestResult>;
   getProviderKeyStatus(): Promise<VaultStatus>;
   getSystemStatus(): Promise<{ dark: boolean; version: string }>;
   /** Termstore 下拉数据（main 侧 7 天缓存；smoke 模式返回空） */

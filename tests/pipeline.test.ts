@@ -77,17 +77,21 @@ describe('generateChecklist（正常链路）', () => {
     const summary = events.find((e) => e.type === 'summary')!;
     expect(summary).toMatchObject({ checklistType: 'Streamlined', sections: 13 });
 
-    // 译文逐条对应且备注已注入
+    // 译文逐条对应；通用规则（R1/R2）提为头部一处，不再逐条重复（产品决议 2026-07-19）
+    expect(result.generalNotes).toEqual([
+      '彩色扫描件，四角齐全，清晰可读',
+      '非英文材料须附宣誓翻译（certified translation）或公证翻译件',
+    ]);
     const allItems = result.groups.flatMap((g) => g.sections.flatMap((s) => s.items));
     expect(allItems.length).toBeGreaterThan(0);
     for (const item of allItems) {
       expect(item.zh).toContain('【中文】');
-      expect(item.notes.some((n) => n.ruleId === 'R1')).toBe(true);
+      expect(item.notes.some((n) => n.ruleId === 'R1' || n.ruleId === 'R2')).toBe(false);
     }
-    // 无犯罪条目 R1+R3（若 Streamlined 清单含 police 条目则断言覆盖）
+    // 无犯罪条目仅 R3 条目级警告（若 Streamlined 清单含 police 条目则断言覆盖）
     const police = allItems.filter((i) => /police/i.test(i.en));
     for (const p of police) {
-      expect(p.notes.map((n) => n.ruleId)).toEqual(['R1', 'R3']);
+      expect(p.notes.map((n) => n.ruleId)).toEqual(['R3']);
     }
 
     // 分组顺序为七大分类子序
@@ -116,7 +120,8 @@ describe('generateChecklist（降级与取消）', () => {
     expect(result.aiMeta).toBeNull();
     const items = result.groups.flatMap((g) => g.sections.flatMap((s) => s.items));
     expect(items.every((i) => i.zh === undefined)).toBe(true);
-    expect(items.every((i) => i.notes.length > 0)).toBe(true);
+    // 通用备注不依赖 AI，降级态仍在头部注入
+    expect(result.generalNotes.length).toBeGreaterThan(0);
     expect(result.groups.length).toBeGreaterThan(0);
   });
 
