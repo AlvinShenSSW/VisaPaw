@@ -186,3 +186,40 @@ describe('prompts（三家共用术语表与 schema）', () => {
     expect(json.required).toEqual(['translations']);
   });
 });
+
+describe('schemaMode: json_object（DeepSeek 兼容端不支持 strict json_schema，Codex PR#38 P1）', () => {
+  it('response_format 为 json_object；schema 附进 user prompt；默认模式不受影响', async () => {
+    const create = vi.fn().mockResolvedValue({
+      choices: [{ message: { content: '{"translations":["一"]}' } }],
+    });
+    const adapter = createOpenAiCompatAdapter({
+      id: 'deepseek',
+      apiKey: 'k',
+      model: 'deepseek-v4-flash',
+      schemaMode: 'json_object',
+      clientFactory: () => ({ chat: { completions: { create } } }),
+    });
+    await adapter.callStructured(CALL);
+    interface Params {
+      response_format: { type: string };
+      messages: Array<{ role: string; content: string }>;
+    }
+    const params = create.mock.calls[0][0] as unknown as Params;
+    expect(params.response_format).toEqual({ type: 'json_object' });
+    expect(params.messages[1].content).toContain('JSON Schema');
+    expect(params.messages[1].content).toContain('additionalProperties');
+    // 默认（未传 schemaMode）仍是 strict json_schema
+    const create2 = vi.fn().mockResolvedValue({
+      choices: [{ message: { content: '{"translations":["一"]}' } }],
+    });
+    const def = createOpenAiCompatAdapter({
+      id: 'openai',
+      apiKey: 'k',
+      model: 'm',
+      clientFactory: () => ({ chat: { completions: { create: create2 } } }),
+    });
+    await def.callStructured(CALL);
+    const p2 = create2.mock.calls[0][0] as unknown as Params;
+    expect(p2.response_format.type).toBe('json_schema');
+  });
+});

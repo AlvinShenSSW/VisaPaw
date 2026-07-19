@@ -3,7 +3,7 @@
  * 不得触及 electron/ 实现（Kimi 终审 P2：类型解耦）。无任何 Node 依赖。
  */
 
-export const PROVIDER_IDS = ['claude', 'openai', 'mimo'] as const;
+export const PROVIDER_IDS = ['mimo', 'deepseek', 'openai', 'claude'] as const;
 export type ProviderId = (typeof PROVIDER_IDS)[number];
 
 export interface ProviderSetting {

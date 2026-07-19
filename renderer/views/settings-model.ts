@@ -50,6 +50,15 @@ const PROVIDER_META: Record<
       { value: 'mimo-v2.5', label: 'mimo-v2.5' },
     ],
   },
+  deepseek: {
+    name: 'DeepSeek（深度求索）',
+    small: 'OpenAI 兼容端点 · response_format: json_object',
+    logo: 'D',
+    models: [
+      { value: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash（默认）' },
+      { value: 'deepseek-chat', label: 'deepseek-chat' },
+    ],
+  },
   claude: {
     name: 'Claude（Anthropic）',
     small: '官方 SDK @anthropic-ai/sdk · 结构化输出 + prompt caching',

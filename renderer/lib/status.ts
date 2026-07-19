@@ -4,7 +4,12 @@
 
 import type { ProviderSetting } from '../../common/types.ts';
 
-const LABEL: Record<string, string> = { claude: 'Claude', openai: 'ChatGPT', mimo: 'MiMo' };
+const LABEL: Record<string, string> = {
+  claude: 'Claude',
+  openai: 'ChatGPT',
+  mimo: 'MiMo',
+  deepseek: 'DeepSeek',
+};
 
 export function providerChainLabel(providers: ProviderSetting[]): string {
   const enabled = providers.filter((p) => p.enabled);

@@ -57,7 +57,9 @@ describe('createSettingsStore', () => {
         { id: 'openai', enabled: false, model: '' },
       ],
     });
-    expect(next.providers.map((p) => p.id)).toEqual(['mimo', 'claude', 'openai']);
+    // 自定义顺序保留，新成员（deepseek）追加尾部——升级不覆盖用户排序（#34）
+    expect(next.providers.map((p) => p.id)).toEqual(['mimo', 'claude', 'openai', 'deepseek']);
+    expect(next.providers.at(-1)).toMatchObject({ id: 'deepseek', enabled: false });
     // 重新打开 → 读到持久化的顺序
     const reopened = createSettingsStore(join(dir, 'settings.json'));
     expect(reopened.get().providers[0].id).toBe('mimo');
@@ -78,9 +80,16 @@ describe('createSettingsStore', () => {
     const next = store.set({
       providers: [{ id: 'mimo', enabled: true, model: 'mimo-v2.5-pro' }, { id: 'bad' }],
     });
-    expect(next.providers.map((x) => x.id)).toEqual(['mimo', 'openai', 'claude']);
+    expect(next.providers.map((x) => x.id)).toEqual(['mimo', 'openai', 'claude', 'deepseek']);
     expect(next.providers.find((x) => x.id === 'claude')?.model).toBe('claude-sonnet-5');
-    expect(createSettingsStore(p).get().providers).toHaveLength(3);
+    expect(createSettingsStore(p).get().providers).toHaveLength(4);
+  });
+
+  it('全新安装默认顺序 MiMo → DeepSeek → ChatGPT → Claude，全员未启用（#34）', () => {
+    const store = createSettingsStore(join(dir, 'fresh.json'));
+    expect(store.get().providers.map((p) => p.id)).toEqual(['mimo', 'deepseek', 'openai', 'claude']);
+    expect(store.get().providers.every((p) => !p.enabled)).toBe(true);
+    expect(store.get().providers.find((p) => p.id === 'deepseek')?.model).toBe('deepseek-v4-flash');
   });
 
   it('损坏的 settings.json 回退默认值而非崩溃', () => {

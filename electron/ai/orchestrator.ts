@@ -16,6 +16,8 @@ import {
 } from './errors.ts';
 import {
   CLAUDE_DEFAULT_MODEL,
+  DEEPSEEK_BASE_URL,
+  DEEPSEEK_DEFAULT_MODEL,
   MIMO_BASE_URL,
   MIMO_DEFAULT_MODEL,
   OPENAI_DEFAULT_MODEL,
@@ -90,16 +92,30 @@ function defaultAdapterFactory(spec: AdapterSpec): ProviderAdapter {
         model: spec.model,
         baseURL: MIMO_BASE_URL,
       });
+    case 'deepseek':
+      return createOpenAiCompatAdapter({
+        id: 'deepseek',
+        apiKey: spec.apiKey,
+        model: spec.model,
+        baseURL: DEEPSEEK_BASE_URL,
+        // DeepSeek 兼容端不支持 strict json_schema，只支持 json_object（Codex PR#38 P1）
+        schemaMode: 'json_object',
+      });
   }
 }
 
 export function resolveModel(id: ProviderId, configured: string): string {
   if (configured) return configured;
-  return id === 'claude'
-    ? CLAUDE_DEFAULT_MODEL
-    : id === 'openai'
-      ? OPENAI_DEFAULT_MODEL
-      : MIMO_DEFAULT_MODEL;
+  switch (id) {
+    case 'claude':
+      return CLAUDE_DEFAULT_MODEL;
+    case 'openai':
+      return OPENAI_DEFAULT_MODEL;
+    case 'deepseek':
+      return DEEPSEEK_DEFAULT_MODEL;
+    case 'mimo':
+      return MIMO_DEFAULT_MODEL;
+  }
 }
 
 export function createAiService(deps: AiServiceDeps): AiService {

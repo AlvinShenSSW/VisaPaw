@@ -102,7 +102,12 @@ export const GENERAL_NOTES_HEADING = '通用要求（适用于以下全部材料
 
 /** 翻译元信息行（红线 5：实际 provider；批间 fallback 时列全）*/
 export function aiMetaLabel(result: GenerateResult): string {
-  const LABEL: Record<string, string> = { claude: 'Claude', openai: 'ChatGPT', mimo: 'MiMo' };
+  const LABEL: Record<string, string> = {
+    claude: 'Claude',
+    openai: 'ChatGPT',
+    mimo: 'MiMo',
+    deepseek: 'DeepSeek',
+  };
   if (result.translationFailed || !result.aiMeta) {
     return '翻译：暂不可用（保留英文原文，可重试翻译）';
   }

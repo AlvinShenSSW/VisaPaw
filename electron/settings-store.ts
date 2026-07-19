@@ -13,10 +13,13 @@ export { PROVIDER_IDS, type ProviderId, type ProviderSetting, type Settings };
 export type SettingsPatch = Partial<Settings>;
 
 export const DEFAULT_SETTINGS: Settings = {
+  // 默认 fallback 顺序（#34 决议）：MiMo → DeepSeek → ChatGPT → Claude。
+  // 仅对全新安装生效：已保存的自定义顺序经 completeProviders 保留，新成员追加在尾部（未启用）
   providers: [
-    { id: 'claude', enabled: false, model: 'claude-opus-4-8' },
-    { id: 'openai', enabled: false, model: '' },
     { id: 'mimo', enabled: false, model: 'mimo-v2.5-pro' },
+    { id: 'deepseek', enabled: false, model: 'deepseek-v4-flash' },
+    { id: 'openai', enabled: false, model: '' },
+    { id: 'claude', enabled: false, model: 'claude-opus-4-8' },
   ],
   studentTypeDefault: '01',
 };

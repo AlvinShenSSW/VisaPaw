@@ -154,7 +154,7 @@ function ProviderTab(props: SettingsViewProps): React.JSX.Element {
       </div>
       <div className="order-hint">
         <span className="arrows">⇅</span>
-        拖动左侧手柄调整 fallback 顺序 · 三家共用同一份术语表与 prompt 模板，切换后术语一致
+        拖动左侧手柄调整 fallback 顺序 · 各家共用同一份术语表与 prompt 模板，切换后术语一致
       </div>
       {saveError && <div className="p-note warn">⚠️ {saveError}</div>}
       {keyError && <div className="p-note warn">⚠️ {keyError}</div>}
