@@ -93,6 +93,49 @@ describe('OpenAI 兼容适配器（ChatGPT / MiMo）', () => {
     const adapter = createOpenAiCompatAdapter({ id: 'openai', apiKey: 'k', model: 'm', clientFactory: () => client });
     await expect(adapter.callStructured(CALL)).rejects.toMatchObject({ kind: 'parse' });
   });
+
+  it('容错解析：<think> 段 / ```json 围栏 / 前后说明文字均能剥壳（MiMo 实测 parse 修复）', async () => {
+    const wrapped = [
+      '<think>先想一想这些条目怎么翻</think>\n```json\n{"translations":["一"]}\n```',
+      '```\n{"translations":["一"]}\n```',
+      '好的，以下是翻译结果：\n{"translations":["一"]}\n如需调整请告知。',
+    ];
+    // 字符串值内含 }/] 与 JSON 后带含括号的尾随文字——平衡扫描不得截错（Kimi PR#32 P2）；
+    // 围栏内字符串可合法含 <think>；正文顺带 JSON 片段不误占对象候选（Kimi PR#32 minor）
+    const bracey = [
+      '结果：{"translations":["含右括号 } 与 ] 的译文（URL: https://x.example/a}b）"]}',
+      '{"translations":["一"]}\n（注：以上 {json} 已按 schema 输出）',
+      '```json\n{"translations":["原文含 <think> 标记 </think> 也不能丢"]}\n```',
+      '输入数组 ["a"] 已收到，输出：{"translations":["一"]}',
+    ];
+    for (const content of bracey) {
+      const client: OpenAiClientLike = {
+        chat: { completions: { create: vi.fn().mockResolvedValue({ choices: [{ message: { content } }] }) } },
+      };
+      const adapter = createOpenAiCompatAdapter({ id: 'mimo', apiKey: 'k', model: 'm', clientFactory: () => client });
+      const out = (await adapter.callStructured(CALL)) as { translations: string[] };
+      expect(out.translations).toHaveLength(1);
+    }
+    for (const content of wrapped) {
+      const client: OpenAiClientLike = {
+        chat: { completions: { create: vi.fn().mockResolvedValue({ choices: [{ message: { content } }] }) } },
+      };
+      const adapter = createOpenAiCompatAdapter({ id: 'mimo', apiKey: 'k', model: 'm', clientFactory: () => client });
+      await expect(adapter.callStructured(CALL)).resolves.toEqual({ translations: ['一'] });
+    }
+  });
+
+  it('剥壳后仍不是 JSON → parse 错误（不静默吞坏输出）', async () => {
+    const client: OpenAiClientLike = {
+      chat: {
+        completions: {
+          create: vi.fn().mockResolvedValue({ choices: [{ message: { content: '完全没有 JSON 的回复 { 残缺' } }] }),
+        },
+      },
+    };
+    const adapter = createOpenAiCompatAdapter({ id: 'mimo', apiKey: 'k', model: 'm', clientFactory: () => client });
+    await expect(adapter.callStructured(CALL)).rejects.toMatchObject({ kind: 'parse' });
+  });
 });
 
 describe('classifyProviderError（三家共用错误映射）', () => {

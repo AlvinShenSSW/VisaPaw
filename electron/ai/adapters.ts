@@ -12,8 +12,8 @@ import type { ProviderId } from '../../common/types.ts';
 import { AiError, classifyProviderError } from './errors.ts';
 import { toStrictJsonSchema } from './prompts.ts';
 
-/** MiMo 开放平台 OpenAI 兼容端点（以官方文档为准，变更时在此调整） */
-export const MIMO_BASE_URL = 'https://api.mimo.xiaomi.com/v1';
+/** MiMo Token 计划 OpenAI 兼容端点（2026-07-19 实测；以官方文档为准，变更时在此调整） */
+export const MIMO_BASE_URL = 'https://token-plan-cn.xiaomimimo.com/v1';
 /** OpenAI 默认模型（SPEC：设置中可选、默认取当期旗舰；错误会触发 fallback，不阻断） */
 export const OPENAI_DEFAULT_MODEL = 'gpt-5.2';
 export const CLAUDE_DEFAULT_MODEL = 'claude-opus-4-8';
@@ -144,6 +144,76 @@ function parseJsonOrThrow(text: string | undefined, provider: ProviderId): unkno
   try {
     return JSON.parse(text) as unknown;
   } catch {
+    // 容错抽取：推理模型（MiMo 等）常把 JSON 包在 <think> 段或 ```json 围栏里，
+    // 或前后带说明文字——剥壳后再试一次，仍失败才判 parse（同 provider 重试一次的
+    // 编排策略不变）
+    const stripped = extractJsonPayload(text);
+    if (stripped !== null) {
+      try {
+        return JSON.parse(stripped) as unknown;
+      } catch {
+        /* 落入下方统一 parse 错误 */
+      }
+    }
     throw new AiError('parse', `模型输出不是合法 JSON：${text.slice(0, 120)}…`, provider);
   }
+}
+
+/**
+ * 从含杂质的模型输出中抽取 JSON 文本；无法定位时返回 null。
+ * - 围栏内容优先，且不对围栏内做 <think> 剥离——围栏内字符串可能合法含该标记
+ *   （Kimi PR#32 minor）；无围栏时才剥推理段
+ * - 平衡括号扫描并尊重字符串转义——首末括号截取会被字符串值内的 }/] 或
+ *   JSON 后的尾随文字截错位置（Kimi PR#32 P2）
+ * - 多候选逐个试 parse，对象候选优先（三个业务 schema 均为对象）——正文里
+ *   出现的顺带 JSON 片段不误占（Kimi PR#32 minor）
+ */
+function extractJsonPayload(text: string): string | null {
+  const fence = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+  const t = (fence ? fence[1] : text.replace(/<think>[\s\S]*?<\/think>/g, '')).trim();
+  let arrayFallback: string | null = null;
+  let from = 0;
+  while (from < t.length) {
+    const rel = t.slice(from).search(/[[{]/);
+    if (rel === -1) break;
+    const start = from + rel;
+    const end = balancedEnd(t, start);
+    if (end !== -1) {
+      const candidate = t.slice(start, end + 1);
+      try {
+        JSON.parse(candidate);
+        if (t[start] === '{') return candidate;
+        arrayFallback ??= candidate;
+      } catch {
+        /* 换下一个候选 */
+      }
+    }
+    from = start + 1;
+  }
+  return arrayFallback;
+}
+
+/** start 处括号的平衡闭合位置（尊重 JSON 字符串与转义）；未闭合返回 -1 */
+function balancedEnd(t: string, start: number): number {
+  const open = t[start];
+  const close = open === '{' ? '}' : ']';
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+  for (let i = start; i < t.length; i += 1) {
+    const c = t[i];
+    if (inString) {
+      if (escape) escape = false;
+      else if (c === '\\') escape = true;
+      else if (c === '"') inString = false;
+    } else if (c === '"') {
+      inString = true;
+    } else if (c === open) {
+      depth += 1;
+    } else if (c === close) {
+      depth -= 1;
+      if (depth === 0) return i;
+    }
+  }
+  return -1;
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { createAiService, type AiEvent } from '../electron/ai/orchestrator.ts';
+import { createAiService, pingProvider, type AiEvent } from '../electron/ai/orchestrator.ts';
 import { AiError, AiExhaustedError, type AiErrorKind } from '../electron/ai/errors.ts';
 import type { ProviderAdapter } from '../electron/ai/adapters.ts';
 import type { ProviderId, ProviderSetting } from '../common/types.ts';
@@ -182,5 +182,40 @@ describe('结构化输出校验（等长与候选约束）', () => {
       provider: 'claude',
       model: 'claude-opus-4-8',
     });
+  });
+});
+
+describe('pingProvider（设置页「测试」按钮的最小连接测试）', () => {
+  const spec = { id: 'mimo' as const, apiKey: 'k', model: 'mimo-v2.5-pro' };
+  const stub = (impl: () => Promise<unknown>) =>
+    () => ({ id: spec.id, model: spec.model, callStructured: impl });
+
+  it('适配器返回 {pong:true} → 通过', async () => {
+    await expect(pingProvider(spec, stub(async () => ({ pong: true })))).resolves.toBeUndefined();
+  });
+
+  it('AiError 原样抛出（auth 等种类供 UI 分类提示）', async () => {
+    await expect(
+      pingProvider(spec, stub(async () => Promise.reject(new AiError('auth', 'bad key', 'mimo'))))
+    ).rejects.toMatchObject({ kind: 'auth' });
+  });
+
+  it('响应不符合 schema / pong≠true → parse', async () => {
+    await expect(pingProvider(spec, stub(async () => ({})))).rejects.toMatchObject({ kind: 'parse' });
+    await expect(pingProvider(spec, stub(async () => ({ pong: false })))).rejects.toMatchObject({
+      kind: 'parse',
+    });
+  });
+
+  it('非 AiError 异常包装为 server（不泄露堆栈语义给 UI）', async () => {
+    await expect(
+      pingProvider(spec, stub(async () => Promise.reject(new Error('boom'))))
+    ).rejects.toMatchObject({ kind: 'server' });
+  });
+
+  it('挂死的 provider 超时 → network（设置页按钮不得无限「测试中」）', async () => {
+    await expect(
+      pingProvider(spec, stub(() => new Promise(() => undefined)), 20)
+    ).rejects.toMatchObject({ kind: 'network' });
   });
 });

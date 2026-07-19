@@ -6,7 +6,13 @@
  */
 
 import type { GenerateResult } from '../common/types.ts';
-import { aiMetaLabel, buildDisplayGroups, cnIndex, formatFetchedAt } from '../common/result-view.ts';
+import {
+  GENERAL_NOTES_HEADING,
+  aiMetaLabel,
+  buildDisplayGroups,
+  cnIndex,
+  formatFetchedAt,
+} from '../common/result-view.ts';
 
 export const DISCLAIMER =
   '免责声明：本清单由官网 Document Checklist Tool 自动生成并翻译，仅供参考，不构成移民建议，请以 immi.homeaffairs.gov.au 官网为准。';
@@ -56,6 +62,18 @@ function itemSourceUrl(row: {
   );
 }
 
+/** 通用要求块（trigger=all 规则头部一处展示，产品决议 2026-07-19）——MD 与纯文本共用 */
+function generalNotesLines(result: GenerateResult, heading: string): string[] {
+  if (!result.generalNotes.length) return [];
+  return [
+    heading,
+    ...result.generalNotes.map(
+      (n) => `- ${n.level === 'warning' ? '⚠️ ' : ''}${ensurePeriod(n.note)}`
+    ),
+    '',
+  ];
+}
+
 /** Markdown（SPEC §7 文档结构） */
 export function buildMarkdown(result: GenerateResult): string {
   const lines: string[] = [
@@ -65,6 +83,7 @@ export function buildMarkdown(result: GenerateResult): string {
     '',
     sourceLine(result),
     '',
+    ...generalNotesLines(result, `**${GENERAL_NOTES_HEADING}**`),
   ];
   for (const [gi, g] of buildDisplayGroups(result).entries()) {
     lines.push(`## ${cnIndex(gi)}、${g.category}`, '');
@@ -111,7 +130,15 @@ export function buildMarkdown(result: GenerateResult): string {
  * （Kimi PR#30 P2）。与 Markdown 同源于 buildDisplayGroups，逐条一致仍由构造保证。
  */
 export function buildPlainText(result: GenerateResult): string {
-  const lines: string[] = [TITLE, '', metaLine(result), '', sourceLine(result), ''];
+  const lines: string[] = [
+    TITLE,
+    '',
+    metaLine(result),
+    '',
+    sourceLine(result),
+    '',
+    ...generalNotesLines(result, GENERAL_NOTES_HEADING),
+  ];
   for (const [gi, g] of buildDisplayGroups(result).entries()) {
     lines.push(`${cnIndex(gi)}、${g.category}`, '');
     for (const row of g.items) {
@@ -218,12 +245,25 @@ export function buildPrintHtml(result: GenerateResult): string {
   .en-text { margin: 5px 0 0 22px; padding: 6px 9px; border-left: 3px solid #BFDFF5; background: #F5F7FA; color: #5A6B7D; font-size: 11px; border-radius: 0 6px 6px 0; }
   .note { margin: 5px 0 0 22px; border: 1px solid #E1E7EE; background: #F5F7FA; border-radius: 6px; padding: 5px 9px; color: #5A6B7D; font-size: 11px; }
   .note.warn { color: #B23B3B; background: #FBEDED; border: 1px solid #EFC7C7; border-left: 4px solid #B23B3B; font-weight: 500; }
+  .general { border: 1px solid #BFDFF5; background: #EAF5FD; border-radius: 8px; padding: 8px 12px; margin-bottom: 14px; color: #1D2733; font-size: 11.5px; }
+  .general ul { margin: 4px 0 0 18px; }
+  .general li.warn { color: #B23B3B; font-weight: 500; }
   .disclaimer { margin-top: 20px; padding-top: 12px; border-top: 1px solid #E1E7EE; color: #5A6B7D; font-size: 10.5px; }
 </style></head>
 <body>
   <h1>${TITLE}</h1>
   <div class="meta">${esc(metaLine(result))}</div>
   <div class="src">${esc(sourceLine(result))}</div>
+  ${
+    result.generalNotes.length
+      ? `<div class="general"><b>${esc(GENERAL_NOTES_HEADING)}：</b><ul>${result.generalNotes
+          .map(
+            (n) =>
+              `<li${n.level === 'warning' ? ' class="warn"' : ''}>${n.level === 'warning' ? '⚠️ ' : ''}${esc(ensurePeriod(n.note))}</li>`
+          )
+          .join('')}</ul></div>`
+      : ''
+  }
   ${body}
   <div class="disclaimer">${esc(DISCLAIMER)}</div>
 </body></html>`;

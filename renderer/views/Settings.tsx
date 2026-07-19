@@ -74,6 +74,11 @@ function ProviderTab(props: SettingsViewProps): React.JSX.Element {
   const [dragFrom, setDragFrom] = useState<number | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [keyError, setKeyError] = useState<string | null>(null);
+  // 连接测试：进行中 provider + 各 provider 最近一次结果（成/败均显性提示）
+  const [testing, setTesting] = useState<ProviderId | null>(null);
+  const [testResults, setTestResults] = useState<
+    Partial<Record<ProviderId, { ok: boolean; message: string }>>
+  >({});
   // 设置写入串行化——并发乐观更新的迟到失败会把 UI 回滚到过期状态（Kimi PR#28 P2）
   const saveChain = useRef<Promise<unknown>>(Promise.resolve());
 
@@ -110,11 +115,31 @@ function ProviderTab(props: SettingsViewProps): React.JSX.Element {
         setKeyStatus(st);
         setEditing(null);
         setDraftKey('');
+        // 换 key 后旧测试结论失效
+        setTestResults((r) => ({ ...r, [id]: undefined }));
       })
       .catch((e: Error) => {
         // Keychain 写入失败必须显性化——静默失败会让用户误以为已保存（Kimi PR#28 P2）
         setKeyError(`API key 保存失败：${e.message}`);
       });
+  };
+
+  const testKey = (id: ProviderId): void => {
+    if (testing || !window.visapaw) return;
+    setTesting(id);
+    setTestResults((r) => ({ ...r, [id]: undefined }));
+    window.visapaw
+      .testProviderKey(id)
+      .then((res) =>
+        setTestResults((r) => ({
+          ...r,
+          [id]: res.ok
+            ? { ok: true, message: `连接成功 · ${res.model}` }
+            : { ok: false, message: res.message },
+        }))
+      )
+      .catch((e: Error) => setTestResults((r) => ({ ...r, [id]: { ok: false, message: e.message } })))
+      .finally(() => setTesting(null));
   };
 
   return (
@@ -189,6 +214,13 @@ function ProviderTab(props: SettingsViewProps): React.JSX.Element {
                     >
                       更换
                     </button>
+                    <button
+                      className="mini-btn"
+                      disabled={testing !== null}
+                      onClick={() => testKey(p.id)}
+                    >
+                      {testing === p.id ? '测试中…' : '测试'}
+                    </button>
                     <span className="verified">✓ 已保存</span>
                   </>
                 ) : (
@@ -207,6 +239,12 @@ function ProviderTab(props: SettingsViewProps): React.JSX.Element {
                   </>
                 )}
               </div>
+              {testResults[p.id] && (
+                <div className={`p-note${testResults[p.id]!.ok ? '' : ' warn'}`}>
+                  {testResults[p.id]!.ok ? '✅ ' : '⚠️ '}
+                  {testResults[p.id]!.message}
+                </div>
+              )}
               <div className="frow">
                 <label>模型</label>
                 {p.id === 'openai' ? (

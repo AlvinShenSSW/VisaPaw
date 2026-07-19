@@ -11,10 +11,11 @@ import { createSettingsStore, PROVIDER_IDS, type SettingsStore, type ProviderId 
 import { createCredentialStore, type CredentialStore, type SafeCrypto } from './credential-store.ts';
 import { createLogStore, type LogStore } from './logging.ts';
 import { createFetcher, type Fetcher } from './fetcher.ts';
-import { createAiService } from './ai/orchestrator.ts';
+import { createAiService, pingProvider, resolveModel } from './ai/orchestrator.ts';
+import { AiError } from './ai/errors.ts';
 import { generateChecklist, mapGenerateError, retranslateResult } from './pipeline.ts';
 import { buildMarkdown, buildPlainText, buildPrintHtml } from './exporter.ts';
-import type { ExportOutcome, GenerateOutcome, GenerateParams, GenerateResult, ProgressEvent } from '../common/types.ts';
+import type { ExportOutcome, GenerateOutcome, GenerateParams, GenerateResult, KeyTestResult, ProgressEvent } from '../common/types.ts';
 
 const DEV_URL = process.env.VITE_DEV_SERVER_URL || 'http://localhost:5274';
 
@@ -31,6 +32,10 @@ function isExportableResult(raw: unknown): raw is GenerateResult {
       (r.params.school === 'undecided' ||
         (typeof r.params.school?.key === 'string' && typeof r.params.school?.value === 'string')) &&
       typeof r.params.studentTypeCode === 'string' &&
+      Array.isArray(r.generalNotes) &&
+      r.generalNotes.every(
+        (n) => typeof n?.note === 'string' && (n.level === 'normal' || n.level === 'warning')
+      ) &&
       Array.isArray(r.aiMetas) &&
       Array.isArray(r.groups) &&
       r.groups.every(
@@ -175,6 +180,40 @@ function registerIpc(): void {
     });
   });
   ipcMain.handle('credentials:status', () => credentials.getStatus());
+  // 单 provider 连接测试（设置页「测试」按钮）——用户显式触发的最小真实 ping；
+  // key 只在 main 侧读取，不跨 IPC（#12 决议不破）
+  let activeKeyTest = false;
+  ipcMain.handle('credentials:test', async (_e, provider: unknown): Promise<KeyTestResult> => {
+    assertProvider(provider);
+    if (activeKeyTest) return { ok: false, message: '已有测试进行中，请稍候' };
+    const apiKey = credentials.getKey(provider);
+    if (!apiKey) return { ok: false, message: '尚未保存 API key' };
+    const setting = settings.get().providers.find((p) => p.id === provider);
+    const model = resolveModel(provider, setting?.model ?? '');
+    activeKeyTest = true;
+    try {
+      await pingProvider({ id: provider, apiKey, model });
+      return { ok: true, model };
+    } catch (e) {
+      const kindLabel: Record<string, string> = {
+        auth: '认证失败（API key 无效或无权限）',
+        'rate-limit': '已连通但被限流',
+        quota: '已连通但套餐额度不足',
+        server: '服务端错误',
+        parse: '已连通但输出格式异常',
+        network: '网络不可达（检查网络或 base URL）',
+      };
+      const err = e instanceof AiError ? e : null;
+      return {
+        ok: false,
+        message: err
+          ? `${kindLabel[err.kind] ?? err.kind}：${err.message}`
+          : (e as Error)?.message ?? String(e),
+      };
+    } finally {
+      activeKeyTest = false;
+    }
+  });
   // Termstore 下拉数据（#9）——smoke 模式不发真实请求（低频红线）
   ipcMain.handle('terms:get', (_e, kind: unknown) => {
     if (kind !== 'countries' && kind !== 'cricos') throw new Error(`未知的 term kind：${String(kind)}`);
@@ -258,10 +297,11 @@ function registerIpc(): void {
   // 状态 D：仅重试翻译，不重新抓取（#13）——与生成共用互斥锁（Codex PR#29 P2）
   ipcMain.handle('generate:retry-translation', async (_e, raw: unknown): Promise<GenerateOutcome> => {
     if (activeCancel) return { ok: false, kind: 'unknown', message: '已有生成任务进行中' };
-    const prev = raw as GenerateResult;
-    if (!prev?.groups || !prev?.params?.country?.value) {
+    // 与导出同一深层校验——缺 generalNotes 等字段的畸形结果不得流入重译链（Kimi PR#32 P2）
+    if (!isExportableResult(raw)) {
       return { ok: false, kind: 'unknown', message: '重试参数不合法' };
     }
+    const prev = raw;
     const lock = { cancelled: false };
     activeCancel = lock;
     const run = logs.startRun({

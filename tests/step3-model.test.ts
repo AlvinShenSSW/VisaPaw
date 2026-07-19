@@ -11,6 +11,7 @@ import type { GenerateResult } from '../common/types.ts';
 const RESULT: GenerateResult = {
   checklistType: 'Streamlined',
   fetchedAt: '2026-07-19T04:32:00.000Z',
+  generalNotes: [{ note: '彩色扫描件，四角齐全，清晰可读', level: 'normal' }],
   params: {
     country: { key: 'China', value: 'CHN' },
     school: { key: 'The University of Melbourne (UniMelb)', value: '00116K' },

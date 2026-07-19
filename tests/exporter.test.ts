@@ -56,6 +56,10 @@ describe('三种导出的红线要素（任何导出物不可省略）', () => {
       expect(text).toContain('不构成移民建议');
       expect(text).toContain('claude-opus-4-8'); // 实际 provider
       expect(text).toContain('澳大利亚学生签证（Subclass 500）申请材料清单');
+      // 通用要求头部一处、且仅一处（产品决议 2026-07-19：不逐条重复）；
+      // 标题含条目级覆盖限定语——与 R3 例外不矛盾（Codex PR#32 P1）
+      expect(text).toContain('通用要求（适用于以下全部材料；条目另有标注的以条目备注为准）');
+      expect(text.match(/彩色扫描件，四角齐全，清晰可读/g)).toHaveLength(1);
     }
   });
 });

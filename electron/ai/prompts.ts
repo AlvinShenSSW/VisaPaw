@@ -63,6 +63,11 @@ export const classifySchema = z.object({
 });
 export type ClassifyOutput = z.infer<typeof classifySchema>;
 
+/** 设置页「测试」按钮的最小连接测试 schema */
+export const pingSchema = z.object({
+  pong: z.boolean(),
+});
+
 export function translateUserPrompt(items: string[]): string {
   return [
     '把以下 JSON 数组中的每个英文条目翻译成简体中文，返回等长的 translations 数组：',

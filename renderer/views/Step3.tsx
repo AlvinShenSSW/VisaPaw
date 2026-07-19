@@ -9,6 +9,7 @@ import { Fragment } from 'react';
 import type { GenerateResult } from '../../common/types.ts';
 import { STUDENT_TYPES } from './Step1.tsx';
 import {
+  GENERAL_NOTES_HEADING,
   aiMetaLabel,
   buildDisplayGroups,
   cnIndex,
@@ -89,6 +90,19 @@ export function Step3(props: Step3Props): React.JSX.Element {
             <span>抓取时间：{formatFetchedAt(result.fetchedAt)}</span>
             <span className="ai">{aiMetaLabel(result)}</span>
           </div>
+          {result.generalNotes.length > 0 && (
+            <div className="general-notes">
+              <b>{GENERAL_NOTES_HEADING}：</b>
+              <ul>
+                {result.generalNotes.map((n) => (
+                  <li key={n.note} className={n.level === 'warning' ? 'warn' : undefined}>
+                    {n.level === 'warning' ? '⚠️ ' : ''}
+                    {ensurePeriod(n.note)}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
 
         {result.translationFailed && (
