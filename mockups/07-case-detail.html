@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VisaPaw · Case 详情 — 侧边栏 Shell + 三步向导嵌入</title>
+<style>
+  :root{
+    --accent:#2E9BDF; --accent-strong:#1E86C9; --accent-tint:#EAF5FD; --accent-border:#BFDFF5;
+    --desktop:#E9EDF2; --window:#F5F7FA; --card:#FFFFFF;
+    --text:#1D2733; --text-2:#5A6B7D; --text-3:#8A97A6;
+    --border:#E1E7EE; --border-2:#CBD5E0;
+    --ok:#2FA34D; --warn:#9A6B1F; --warn-bg:#FBF3E4; --warn-border:#EBD9B4;
+    --danger:#C94141; --danger-bg:#FBEDED;
+    --shadow:0 24px 64px rgba(31,45,61,.20),0 2px 8px rgba(31,45,61,.08);
+    --field-bg:#FFFFFF;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --accent:#4FB0F0; --accent-strong:#6BBEF5; --accent-tint:#1C3A52; --accent-border:#2C5A7C;
+      --desktop:#17191D; --window:#232629; --card:#2C3034;
+      --text:#E9ECEF; --text-2:#A6B0BA; --text-3:#79838E;
+      --border:#3A3F45; --border-2:#4A5058;
+      --ok:#4EC46C; --warn:#D9A94E; --warn-bg:#3A3223; --warn-border:#5A4C2C;
+      --danger:#E06C6C; --danger-bg:#402A2A;
+      --shadow:0 24px 64px rgba(0,0,0,.55),0 2px 8px rgba(0,0,0,.4);
+      --field-bg:#25282C;
+    }
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    background:var(--desktop); color:var(--text);
+    min-height:100vh; padding:48px 24px 64px;
+    display:flex; flex-direction:column; align-items:center; gap:26px;
+    -webkit-font-smoothing:antialiased;
+  }
+  .state-label{align-self:center;font-size:12.5px;font-weight:700;color:var(--accent-strong);
+    background:var(--accent-tint);border:1px solid var(--accent-border);border-radius:999px;padding:4px 14px;}
+  .page-note{font-size:12px;color:var(--text-3);}
+  .page-note a{color:var(--accent);text-decoration:none;}
+  .page-note a:hover{text-decoration:underline;}
+
+  .window{width:100%;max-width:1160px;background:var(--window);border-radius:12px;
+    box-shadow:var(--shadow);border:1px solid rgba(0,0,0,.08);overflow:hidden;}
+  @media (prefers-color-scheme: dark){ .window{border-color:rgba(255,255,255,.10);} }
+  .titlebar{height:46px;display:flex;align-items:center;padding:0 16px;position:relative;border-bottom:1px solid var(--border);}
+  .traffic{display:flex;gap:8px;}
+  .traffic span{width:12px;height:12px;border-radius:50%;display:block;box-shadow:inset 0 0 0 .5px rgba(0,0,0,.15);}
+  .t-close{background:#FF5F57;} .t-min{background:#FEBC2E;} .t-max{background:#28C840;}
+  .titlebar .title{position:absolute;left:50%;transform:translateX(-50%);
+    font-size:13px;font-weight:600;color:var(--text-2);}
+
+  .shell{display:flex;min-height:560px;}
+  .sidebar{width:216px;flex:none;border-right:1px solid var(--border);
+    display:flex;flex-direction:column;padding:18px 12px 14px;gap:4px;}
+  .brand{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:800;padding:0 10px 14px;}
+  .brand .paw{color:var(--accent);}
+  .nav-item{display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:8px;
+    font-size:13.5px;color:var(--text-2);cursor:pointer;}
+  .nav-item svg{width:16px;height:16px;flex:none;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+  .nav-item:hover{background:var(--card);}
+  .nav-item.active{background:var(--accent-tint);color:var(--accent-strong);font-weight:700;}
+  .nav-spacer{flex:1;}
+  .nav-version{font-size:11px;color:var(--text-3);padding:10px 10px 0;border-top:1px solid var(--border);}
+  .nav-running{display:flex;align-items:center;gap:8px;margin:6px 10px 0;padding:7px 10px;
+    font-size:11.5px;color:var(--accent-strong);background:var(--accent-tint);
+    border:1px solid var(--accent-border);border-radius:8px;}
+  .spin{width:10px;height:10px;border:2px solid var(--accent-border);border-top-color:var(--accent);
+    border-radius:50%;display:inline-block;flex:none;animation:sp 1s linear infinite;}
+  @keyframes sp{to{transform:rotate(360deg);}}
+
+  .main{flex:1;min-width:0;background:var(--card);display:flex;flex-direction:column;}
+
+  /* ---- case 头部 ---- */
+  .case-head{padding:20px 30px 0;}
+  .crumbs{font-size:12px;color:var(--text-3);}
+  .crumbs a{color:var(--accent);text-decoration:none;}
+  .case-title{display:flex;align-items:baseline;gap:12px;margin-top:8px;flex-wrap:wrap;}
+  .case-title h1{font-size:19px;font-weight:800;}
+  .case-title .caseno{font-size:13px;font-weight:700;color:var(--accent-strong);
+    background:var(--accent-tint);border:1px solid var(--accent-border);border-radius:7px;padding:2px 9px;font-variant-numeric:tabular-nums;}
+  .case-title .meta{font-size:12.5px;color:var(--text-2);}
+  .pill{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;border-radius:999px;padding:3px 10px;}
+  .pill-new{color:var(--text-2);background:var(--window);border:1px solid var(--border-2);}
+  .pill-run{color:var(--accent-strong);background:var(--accent-tint);border:1px solid var(--accent-border);}
+
+  .tabs{display:flex;gap:2px;margin-top:16px;border-bottom:1px solid var(--border);}
+  .tab{font-size:13px;padding:9px 16px;border-radius:8px 8px 0 0;color:var(--text-2);cursor:pointer;position:relative;}
+  .tab.active{color:var(--accent-strong);font-weight:700;}
+  .tab.active::after{content:"";position:absolute;left:10px;right:10px;bottom:-1px;height:2.5px;background:var(--accent);border-radius:2px;}
+  .tab.disabled{color:var(--text-3);cursor:default;}
+  .tab .soon{font-size:10px;color:var(--text-3);border:1px dashed var(--border-2);border-radius:5px;padding:1px 5px;margin-left:6px;}
+
+  /* ---- 向导内容（嵌入现 Step 1，视觉与 01-input-form 一致） ---- */
+  .wizard{padding:26px 44px 36px;max-width:720px;}
+  .stepper{display:flex;align-items:center;gap:10px;margin-bottom:22px;}
+  .sstep{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--text-3);}
+  .sstep .n{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    font-size:11.5px;font-weight:700;border:1.5px solid var(--border-2);background:var(--card);color:var(--text-3);}
+  .sstep.current{color:var(--text);font-weight:600;}
+  .sstep.current .n{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .sline{flex:1;height:1.5px;background:var(--border-2);max-width:56px;}
+  .field{margin-bottom:20px;}
+  .field label{display:block;font-size:13px;font-weight:600;margin-bottom:7px;}
+  .field label .opt{font-weight:400;color:var(--text-3);font-size:12px;margin-left:6px;}
+  .input,.select{width:100%;height:36px;border:1px solid var(--border-2);border-radius:8px;
+    background:var(--field-bg);color:var(--text);font-size:14px;padding:0 12px;font-family:inherit;outline:none;}
+  .hint{margin-top:6px;font-size:12px;color:var(--text-3);line-height:1.5;}
+  .prefill{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--accent-strong);
+    background:var(--accent-tint);border:1px solid var(--accent-border);border-radius:5px;padding:1px 7px;margin-left:8px;}
+  .cta{margin-top:6px;height:40px;border:none;border-radius:9px;background:var(--accent);color:#fff;
+    font-size:14.5px;font-weight:700;padding:0 22px;font-family:inherit;cursor:pointer;}
+  .cta:hover{background:var(--accent-strong);}
+
+  .annot{margin:0 30px 26px;border:1px dashed var(--accent-border);background:var(--accent-tint);
+    border-radius:10px;padding:12px 16px;font-size:12px;color:var(--text-2);line-height:1.8;}
+  .annot b{color:var(--accent-strong);}
+</style>
+</head>
+<body>
+
+<!-- ============ 状态 A：case 详情 · 清单 tab（Step 1 预填） ============ -->
+<div class="state-label">状态 A · Case 详情 /cases/:id — 清单 tab（现三步向导嵌入，Step 1 国籍已预填）</div>
+<div class="window">
+  <div class="titlebar">
+    <div class="traffic"><span class="t-close"></span><span class="t-min"></span><span class="t-max"></span></div>
+    <div class="title">VP-2026-0005 · 材料清单 — Step 1 / 3</div>
+  </div>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand"><span class="paw">🐾</span> VisaPaw</div>
+      <div class="nav-item active" aria-current="page">
+        <svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+        Case 列表
+      </div>
+      <div class="nav-spacer"></div>
+      <div class="nav-item">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.5-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.1-.8.1-1.2z"/></svg>
+        设置
+      </div>
+      <div class="nav-version">v0.2.0 · Iteration 2</div>
+    </aside>
+    <div class="main">
+      <div class="case-head">
+        <div class="crumbs"><a href="06-case-list.html">Case 列表</a> / VP-2026-0005</div>
+        <div class="case-title">
+          <span class="caseno">VP-2026-0005</span>
+          <h1>王小明</h1>
+          <span class="meta">🇨🇳 China（CHN） · 学生签证 Subclass 500</span>
+          <span class="pill pill-new">新建</span>
+        </div>
+        <div class="tabs">
+          <div class="tab active">材料清单</div>
+          <div class="tab disabled">申请人资料<span class="soon">规划中</span></div>
+          <div class="tab disabled">跟进记录<span class="soon">规划中</span></div>
+          <div class="tab disabled">文件<span class="soon">规划中</span></div>
+        </div>
+      </div>
+      <div class="wizard">
+        <div class="stepper">
+          <div class="sstep current"><span class="n">1</span>输入信息</div><div class="sline"></div>
+          <div class="sstep"><span class="n">2</span>生成清单</div><div class="sline"></div>
+          <div class="sstep"><span class="n">3</span>查看结果</div>
+        </div>
+        <div class="field">
+          <label>护照国籍<span class="prefill">来自 Case，可修改并回写</span></label>
+          <input class="input" type="text" value="🇨🇳 China（CHN）">
+        </div>
+        <div class="field">
+          <label>意向院校<span class="opt">可选 · 未定可跳过</span></label>
+          <input class="input" type="text" placeholder="搜索院校名或 CRICOS 码，或选择「未定」">
+          <div class="hint">选定院校与学生类型会保存回本 Case，下次进入直接带出。</div>
+        </div>
+        <div class="field">
+          <label>学生类型</label>
+          <select class="select"><option>01 — Higher Education（高等教育）</option></select>
+        </div>
+        <button class="cta">生成材料清单 →</button>
+      </div>
+      <div class="annot">
+        <b>与 Iteration 1 的差异注记：</b>
+        ① 标题栏齿轮移除，设置固定在侧边栏底部；
+        ② Step 1 国家来自 Case 预填（新建弹窗已采集，默认中国）；
+        ③ Step 2/3 原样嵌入本 tab（视觉 token 不变，mockup 02/03 仍是其视觉基准）；
+        ④ 生成成功后结果自动落库到本 Case（status → 已生成），重复生成追加历史、界面展示最新。
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 状态 B：生成中离开（侧边栏驻留提示） ============ -->
+<div class="state-label">状态 B · 生成进行中导航去列表 — 任务不中断，侧边栏驻留进度入口</div>
+<div class="window">
+  <div class="titlebar">
+    <div class="traffic"><span class="t-close"></span><span class="t-min"></span><span class="t-max"></span></div>
+    <div class="title">🐾 VisaPaw — Case 管理</div>
+  </div>
+  <div class="shell" style="min-height:400px;">
+    <aside class="sidebar">
+      <div class="brand"><span class="paw">🐾</span> VisaPaw</div>
+      <div class="nav-item active"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Case 列表</div>
+      <div class="nav-running"><span class="spin"></span>VP-2026-0005 生成中 · 翻译 16/34</div>
+      <div class="nav-spacer"></div>
+      <div class="nav-item"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.5-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.1-.8.1-1.2z"/></svg>设置</div>
+      <div class="nav-version">v0.2.0 · Iteration 2</div>
+    </aside>
+    <div class="main" style="padding:26px 30px;">
+      <h1 style="font-size:19px;font-weight:800;">Case 列表</h1>
+      <div class="annot" style="margin:18px 0 0;">
+        <b>行为注记：</b>
+        生成在 main 进程运行，离开 Case 页不打断（既有「同时仅一个生成任务」互斥不变）。
+        侧边栏出现驻留进度入口（点击回到该 Case 的 Step 2）；列表中该 Case 行状态为「生成中」+ spinner。
+        完成后驻留入口消失，行状态变「已生成」。
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="page-note">Case 管理体系 v1 · 对应 docs/CASE-MANAGEMENT-DESIGN.md §4.3 · Step 2/3 视觉仍以 mockup 02/03 为基准 · <a href="06-case-list.html">← 上一页：Case 列表</a> · <a href="index.html">返回导航页</a></div>
+
+</body>
+</html>

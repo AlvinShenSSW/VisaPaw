@@ -134,6 +134,20 @@
       <p>四个面板：网络失败（可重试）、官网 403（文案与网络失败分开）、结构指纹校验失败 → 内嵌 WebView 手动模式 + 更新提示条、所有 provider 翻译失败 → 保留英文清单 + 局部重试翻译。</p>
       <div class="states"><span class="st">NET_TIMEOUT</span><span class="st">HTTP 403</span><span class="st">WebView 降级</span><span class="st">翻译不可用</span></div>
     </a>
+    <a class="card" href="06-case-list.html">
+      <span class="no">06</span>
+      <h2>🗂️ Case 列表（应用首页）· Iteration 2 设计稿</h2>
+      <div class="spec">docs/CASE-MANAGEMENT-DESIGN.md §4.1–4.2 · 待评审</div>
+      <p>左侧边栏 Shell + Case 列表首页：模糊搜索（Case 号/姓名/国家）+ 下拉筛选 + 新建 Case 弹窗（国籍默认中国）；空态与无结果态均给动作出口。</p>
+      <div class="states"><span class="st">列表</span><span class="st">新建弹窗</span><span class="st">空态</span><span class="st">无结果态</span></div>
+    </a>
+    <a class="card" href="07-case-detail.html">
+      <span class="no">07</span>
+      <h2>📋 Case 详情 · 向导嵌入 · Iteration 2 设计稿</h2>
+      <div class="spec">docs/CASE-MANAGEMENT-DESIGN.md §4.3 · 待评审</div>
+      <p>Case 头部（编号/姓名/状态）+ tab 架构（清单 = 现三步向导，资料/跟进/文件规划中占位）；Step 1 国籍由 Case 预填；生成中导航离开不打断，侧边栏驻留进度入口。</p>
+      <div class="states"><span class="st">清单 tab</span><span class="st">Step1 预填</span><span class="st">生成中驻留</span></div>
+    </a>
   </div>
 
   <div class="notes">
