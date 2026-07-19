@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { displayValue, filterOptions, moveActive } from '../renderer/lib/combobox.ts';
+import { defaultCountry, displayValue, filterOptions, moveActive } from '../renderer/lib/combobox.ts';
 import { providerChainLabel } from '../renderer/lib/status.ts';
 
 const cricos = (
@@ -71,5 +71,26 @@ describe('displayValue 与 provider 链文案', () => {
       ])
     ).toBe('AI Provider：MiMo · mimo-v2.5-pro');
     expect(providerChainLabel([{ id: 'claude', enabled: false, model: '' }])).toContain('未配置');
+  });
+});
+
+describe('defaultCountry（#33：Step 1 默认选中中国）', () => {
+  it('真实 fixture 数据源中命中 China（CHN）', () => {
+    const items = JSON.parse(
+      readFileSync(join(process.cwd(), 'tests', 'fixtures', 'termstore-countries.json'), 'utf8')
+    ).d.data as Array<{ Key: string; Value: string }>;
+    const terms = items.map((i) => ({ key: i.Key, value: i.Value }));
+    // 官网真实条目：China (excludes SARs and Taiwan) / CHN——value 匹配保证不受 key 措辞影响
+    const hit = defaultCountry(terms);
+    expect(hit?.value).toBe('CHN');
+    expect(hit?.key).toContain('China');
+  });
+
+  it('value=CHN 优先；无 CHN 时按 key=China 大小写不敏感回退；均无 → null（不造半选态）', () => {
+    expect(defaultCountry([{ key: '中国', value: 'CHN' }, { key: 'China', value: 'XXX' }]))
+      .toEqual({ key: '中国', value: 'CHN' });
+    expect(defaultCountry([{ key: 'CHINA', value: 'XXX' }])).toEqual({ key: 'CHINA', value: 'XXX' });
+    expect(defaultCountry([{ key: 'India', value: 'IND' }])).toBeNull();
+    expect(defaultCountry([])).toBeNull();
   });
 });

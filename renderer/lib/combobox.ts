@@ -52,6 +52,19 @@ export function moveActive(current: number, delta: 1 | -1, count: number): numbe
   return (current + delta + count) % count;
 }
 
+/**
+ * 默认国家（#33）：从真实下拉数据源中取中国项——value=CHN 优先，其次 key=China
+ * （大小写不敏感）；数据源中找不到则返回 null（保持未选，不造半选态）。
+ * 未来「新建 Case」表单共用此默认逻辑。
+ */
+export function defaultCountry(items: TermItem[]): TermItem | null {
+  return (
+    items.find((i) => i.value === 'CHN') ??
+    items.find((i) => i.key.toLowerCase() === 'china') ??
+    null
+  );
+}
+
 /** 选中值的输入框显示文本（如 `China（CHN）` / `The University of Melbourne（00116K）`） */
 export function displayValue(selected: TermItem | 'undecided' | null, undecidedLabel: string): string {
   if (selected === null) return '';

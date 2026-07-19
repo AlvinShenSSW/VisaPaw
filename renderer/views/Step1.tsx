@@ -7,6 +7,7 @@
 import { useEffect, useState } from 'react';
 import type { Settings, TermItem } from '../../common/types.ts';
 import { Combobox } from '../components/Combobox.tsx';
+import { defaultCountry } from '../lib/combobox.ts';
 
 export type StudentTypeCode = '01' | '02' | '03' | '04' | '05';
 
@@ -50,6 +51,8 @@ export function Step1(props: Step1Props): React.JSX.Element {
         setCountries(c);
         setSchools(s);
         setTermsError(null); // 并发加载下成功必须清除横幅（Kimi 终审 P2）
+        // 默认选中中国（#33）——仅在用户尚未选择时生效，改选后以用户为准
+        setCountry((prev) => prev ?? defaultCountry(c));
       })
       .catch((e: Error) => {
         setTermsError(e.message || '官网下拉数据加载失败');
