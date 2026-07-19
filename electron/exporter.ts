@@ -6,7 +6,13 @@
  */
 
 import type { GenerateResult } from '../common/types.ts';
-import { aiMetaLabel, buildDisplayGroups, cnIndex, formatFetchedAt } from '../common/result-view.ts';
+import {
+  GENERAL_NOTES_HEADING,
+  aiMetaLabel,
+  buildDisplayGroups,
+  cnIndex,
+  formatFetchedAt,
+} from '../common/result-view.ts';
 
 export const DISCLAIMER =
   '免责声明：本清单由官网 Document Checklist Tool 自动生成并翻译，仅供参考，不构成移民建议，请以 immi.homeaffairs.gov.au 官网为准。';
@@ -71,7 +77,7 @@ export function buildMarkdown(result: GenerateResult): string {
     '',
     sourceLine(result),
     '',
-    ...generalNotesLines(result, '**通用要求（适用于以下全部材料）**'),
+    ...generalNotesLines(result, `**${GENERAL_NOTES_HEADING}**`),
   ];
   for (const [gi, g] of buildDisplayGroups(result).entries()) {
     lines.push(`## ${cnIndex(gi)}、${g.category}`, '');
@@ -125,7 +131,7 @@ export function buildPlainText(result: GenerateResult): string {
     '',
     sourceLine(result),
     '',
-    ...generalNotesLines(result, '通用要求（适用于以下全部材料）'),
+    ...generalNotesLines(result, GENERAL_NOTES_HEADING),
   ];
   for (const [gi, g] of buildDisplayGroups(result).entries()) {
     lines.push(`${cnIndex(gi)}、${g.category}`, '');
@@ -243,7 +249,7 @@ export function buildPrintHtml(result: GenerateResult): string {
   <div class="src">${esc(sourceLine(result))}</div>
   ${
     result.generalNotes.length
-      ? `<div class="general"><b>通用要求（适用于以下全部材料）：</b><ul>${result.generalNotes
+      ? `<div class="general"><b>${esc(GENERAL_NOTES_HEADING)}：</b><ul>${result.generalNotes
           .map((n) => `<li>${esc(ensurePeriod(n))}</li>`)
           .join('')}</ul></div>`
       : ''

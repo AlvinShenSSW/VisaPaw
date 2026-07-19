@@ -9,6 +9,7 @@ import { Fragment } from 'react';
 import type { GenerateResult } from '../../common/types.ts';
 import { STUDENT_TYPES } from './Step1.tsx';
 import {
+  GENERAL_NOTES_HEADING,
   aiMetaLabel,
   buildDisplayGroups,
   cnIndex,
@@ -91,7 +92,7 @@ export function Step3(props: Step3Props): React.JSX.Element {
           </div>
           {result.generalNotes.length > 0 && (
             <div className="general-notes">
-              <b>通用要求（适用于以下全部材料）：</b>
+              <b>{GENERAL_NOTES_HEADING}：</b>
               <ul>
                 {result.generalNotes.map((n) => (
                   <li key={n}>{ensurePeriod(n)}</li>

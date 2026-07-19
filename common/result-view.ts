@@ -94,6 +94,12 @@ export function formatFetchedAt(iso: string, tzOffsetMinutes?: number): string {
   );
 }
 
+/**
+ * 通用要求标题——UI 与三种导出共用单源。限定语明确条目级覆盖优先
+ * （R3：无犯罪证明只接受公证翻译，与全局 R2 并存不矛盾；Codex PR#32 P1）
+ */
+export const GENERAL_NOTES_HEADING = '通用要求（适用于以下全部材料；条目另有标注的以条目备注为准）';
+
 /** 翻译元信息行（红线 5：实际 provider；批间 fallback 时列全）*/
 export function aiMetaLabel(result: GenerateResult): string {
   const LABEL: Record<string, string> = { claude: 'Claude', openai: 'ChatGPT', mimo: 'MiMo' };
