@@ -159,14 +159,36 @@ function parseJsonOrThrow(text: string | undefined, provider: ProviderId): unkno
   }
 }
 
-/** 从含杂质的模型输出中抽取 JSON 文本；无法定位时返回 null */
+/**
+ * 从含杂质的模型输出中抽取 JSON 文本；无法定位时返回 null。
+ * 平衡括号扫描并尊重字符串转义——首末括号截取会被字符串值内的 }/] 或
+ * JSON 后的尾随文字截错位置（Kimi PR#32 P2）
+ */
 function extractJsonPayload(text: string): string | null {
   let t = text.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
   const fence = t.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
   if (fence) t = fence[1].trim();
   const start = t.search(/[[{]/);
   if (start === -1) return null;
-  const end = t.lastIndexOf(t[start] === '{' ? '}' : ']');
-  if (end <= start) return null;
-  return t.slice(start, end + 1);
+  const open = t[start];
+  const close = open === '{' ? '}' : ']';
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+  for (let i = start; i < t.length; i += 1) {
+    const c = t[i];
+    if (inString) {
+      if (escape) escape = false;
+      else if (c === '\\') escape = true;
+      else if (c === '"') inString = false;
+    } else if (c === '"') {
+      inString = true;
+    } else if (c === open) {
+      depth += 1;
+    } else if (c === close) {
+      depth -= 1;
+      if (depth === 0) return t.slice(start, i + 1);
+    }
+  }
+  return null;
 }
